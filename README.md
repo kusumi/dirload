@@ -1,4 +1,4 @@
-dirload ([v0.1.0](https://github.com/kusumi/dirload/releases/tag/v0.1.0))
+dirload ([v0.2.0](https://github.com/kusumi/dirload/releases/tag/v0.2.0))
 ========
 
 ## About
@@ -27,6 +27,10 @@ or
     usage: dirload: [<options>] <paths>
       -debug
             Create debug log file under home directory
+      -flist_file string
+            Path to flist file
+      -flist_file_create
+            Create flist file and exit
       -h    Print usage and exit
       -ignore_dot
             Ignore entry starts with .

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -29,6 +30,58 @@ func (this *workerTimer) Error() string {
 	return fmt.Sprint(this.err)
 }
 
+func setupFlist(input []string) ([][]string, error) {
+	fls := make([][]string, len(input))
+	if optFlistFile != "" {
+		// load flist from flist file
+		assert(optPathIter != PATH_ITER_WALK)
+		fmt.Println("flist_file", optFlistFile)
+		if l, err := loadFlistFile(optFlistFile); err != nil {
+			return fls, err
+		} else {
+			for _, s := range l {
+				found := false
+				for i, f := range input {
+					if strings.HasPrefix(s, f) {
+						fls[i] = append(fls[i], s)
+						found = true
+					}
+				}
+				if !found {
+					return fls, fmt.Errorf("%s has no prefix in %s", s, input)
+				}
+			}
+		}
+	} else {
+		// initialize flist by walking input directories
+		for i, f := range input {
+			if l, err := initFlist(f, optIgnoreDot); err != nil {
+				return fls, err
+			} else {
+				fmt.Println(len(l), "files scanned from", f)
+				fls[i] = l
+			}
+		}
+	}
+
+	// ignore empty flist if any
+	var tmpfls [][]string
+	for i, fl := range fls {
+		if len(fl) != 0 {
+			tmpfls = append(tmpfls, fl)
+		} else {
+			fmt.Println("ignore empty flist", input[i])
+		}
+	}
+	fls = tmpfls
+	for i, fl := range fls {
+		assert(len(fl) != 0)
+		fmt.Println("flist", input[i], len(fl))
+	}
+
+	return fls, nil
+}
+
 func dispatchWorker(input []string) (int, int, int, error) {
 	for _, f := range input {
 		assert(filepath.IsAbs(f))
@@ -49,26 +102,26 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	initDir(optNumWorker, optReadBufferSize)
 	initStat(optNumWorker)
 
-	// initialize file list for non-walk iterations
-	var flist [][]string
+	// using flist file means not walking input directories
+	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
+		optPathIter = PATH_ITER_ORDERED
+		fmt.Println("using flist, force -path_iter=ordered")
+	}
+
+	// setup flist for non-walk iterations
+	var fls [][]string
 	if optPathIter == PATH_ITER_WALK {
 		for _, f := range input {
 			fmt.Println("walk", f)
 		}
 	} else {
-		flist = make([][]string, len(input))
-		for i, f := range input {
-			if l, err := initFileList(f); err != nil {
-				return -1, -1, -1, err
-			} else {
-				fmt.Println(len(l), "files scanned from", f)
-				flist[i] = l
-			}
+		var err error
+		if fls, err = setupFlist(input); err != nil {
+			return -1, -1, -1, err
 		}
 		if optPathIter == PATH_ITER_RANDOM {
 			rand.Seed(time.Now().UnixNano())
 		}
-		assert(len(input) == len(flist))
 	}
 
 	// signal handler goroutine
@@ -147,7 +200,7 @@ func dispatchWorker(input []string) (int, int, int, error) {
 							}
 						})
 				} else {
-					fl := flist[n%len(flist)]
+					fl := fls[n%len(fls)]
 					for j := 0; j < len(fl); j++ {
 						select {
 						case <-interrupt_ch:

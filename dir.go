@@ -23,51 +23,6 @@ func initDir(n int, bufsiz int) {
 	}
 }
 
-func initFileList(input string) ([]string, error) {
-	var l []string
-	err := filepath.WalkDir(input,
-		func(f string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-
-			assertFilePath(f)
-			t, err := getRawFileType(f)
-			if err != nil {
-				return err
-			}
-
-			// ignore . entries if specified
-			if optIgnoreDot {
-				// XXX want retval to ignore children for .directory
-				if t != DIR {
-					if isDotPath(f) {
-						return nil
-					}
-				}
-			}
-
-			switch t {
-			case DIR:
-				return nil
-			case REG:
-				l = append(l, f)
-			case DEVICE:
-				return nil
-			case SYMLINK:
-				l = append(l, f)
-			case UNSUPPORTED:
-				return nil
-			case INVALID:
-				panicFileType(f, "invalid", t)
-			default:
-				panicFileType(f, "unknown", t)
-			}
-			return nil
-		})
-	return l, err
-}
-
 func handleEntry(gid int, f string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
