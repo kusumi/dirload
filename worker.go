@@ -30,7 +30,7 @@ func (this *workerTimer) Error() string {
 	return fmt.Sprint(this.err)
 }
 
-func setupFlist(input []string) ([][]string, error) {
+func setupFlistImpl(input []string) ([][]string, error) {
 	fls := make([][]string, len(input))
 	if optFlistFile != "" {
 		// load flist from flist file
@@ -45,6 +45,7 @@ func setupFlist(input []string) ([][]string, error) {
 					if strings.HasPrefix(s, f) {
 						fls[i] = append(fls[i], s)
 						found = true
+						// no break, s can exist in multiple fls[i]
 					}
 				}
 				if !found {
@@ -64,22 +65,40 @@ func setupFlist(input []string) ([][]string, error) {
 		}
 	}
 
-	// ignore empty flist if any
-	var tmpfls [][]string
+	// don't allow empty flist as it results in spinning loop
 	for i, fl := range fls {
 		if len(fl) != 0 {
-			tmpfls = append(tmpfls, fl)
+			fmt.Println("flist", input[i], len(fl))
 		} else {
-			fmt.Println("ignore empty flist", input[i])
+			return fls, fmt.Errorf("empty flist %s", input[i])
 		}
-	}
-	fls = tmpfls
-	for i, fl := range fls {
-		assert(len(fl) != 0)
-		fmt.Println("flist", input[i], len(fl))
 	}
 
 	return fls, nil
+}
+
+func setupFlist(input []string) ([][]string, error) {
+	// using flist file means not walking input directories
+	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
+		optPathIter = PATH_ITER_ORDERED
+		fmt.Println("using flist, force -path_iter=ordered")
+	}
+
+	// setup flist for non-walk iterations
+	var fls [][]string
+	if optPathIter == PATH_ITER_WALK {
+		for _, f := range input {
+			fmt.Println("walk", f)
+		}
+		return nil, nil
+	} else {
+		var err error
+		if fls, err = setupFlistImpl(input); err != nil {
+			return nil, err
+		}
+		assert(len(input) == len(fls))
+		return fls, nil
+	}
 }
 
 func dispatchWorker(input []string) (int, int, int, error) {
@@ -99,29 +118,12 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	var num_error int32
 
 	// initialize per goroutine variables
-	initDir(optNumWorker, optReadBufferSize)
-	initStat(optNumWorker)
+	initReadBuffer(optNumReader, optReadBufferSize)
+	initStat(optNumReader, optNumWriter)
 
-	// using flist file means not walking input directories
-	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
-		optPathIter = PATH_ITER_ORDERED
-		fmt.Println("using flist, force -path_iter=ordered")
-	}
-
-	// setup flist for non-walk iterations
-	var fls [][]string
-	if optPathIter == PATH_ITER_WALK {
-		for _, f := range input {
-			fmt.Println("walk", f)
-		}
-	} else {
-		var err error
-		if fls, err = setupFlist(input); err != nil {
-			return -1, -1, -1, err
-		}
-		if optPathIter == PATH_ITER_RANDOM {
-			rand.Seed(time.Now().UnixNano())
-		}
+	fls, err := setupFlist(input)
+	if err != nil {
+		return -1, -1, -1, err
 	}
 
 	// signal handler goroutine
@@ -147,7 +149,7 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	}()
 
 	// worker goroutines
-	for i := 0; i < optNumWorker; i++ {
+	for i := 0; i < optNumReader+optNumWriter; i++ {
 		wg.Add(1)
 		n := i
 		setTimeBegin(n)
@@ -156,11 +158,11 @@ func dispatchWorker(input []string) (int, int, int, error) {
 			defer func() {
 				// XXX possible race vs signal handler goroutine
 				total := int(num_complete + num_interrupted + num_error)
-				if total == optNumWorker {
+				if total == optNumReader+optNumWriter {
 					if signaled {
-						dbgf("%d+%d goroutines done", total, 1)
+						dbgf("%d+%d reader goroutines done", total, 1)
 					} else {
-						dbgf("%d goroutines done", total)
+						dbgf("%d reader goroutines done", total)
 						signal_ch <- 1
 					}
 				}
@@ -179,6 +181,21 @@ func dispatchWorker(input []string) (int, int, int, error) {
 			input_path := input[n%len(input)]
 			setInputPath(n, input_path)
 
+			// writer only writes against readonly mount
+			if n >= optNumReader {
+				if writable, err := isDirWritable(input_path); err != nil {
+					dbgf("#%d %s", n, err)
+					fmt.Println(err)
+					atomic.AddInt32(&num_complete, 1)
+					return
+				} else if writable {
+					dbgf("#%d %s not readonly mounted", n, input_path)
+					fmt.Println(input_path, "not readonly mounted")
+					atomic.AddInt32(&num_complete, 1)
+					return
+				}
+			}
+
 			// start loop
 			repeat := 0
 			dbgf("#%d start", n)
@@ -196,7 +213,12 @@ func dispatchWorker(input []string) (int, int, int, error) {
 								dbgf("#%d timer", n)
 								return &workerTimer{}
 							default:
-								return handleEntry(n, f, d, err)
+								assert(strings.HasPrefix(f, input_path))
+								if n < optNumReader {
+									return readEntry(n, f, d, err)
+								} else {
+									return writeEntry(n, f, d, err)
+								}
 							}
 						})
 				} else {
@@ -221,7 +243,13 @@ func dispatchWorker(input []string) (int, int, int, error) {
 							default:
 								idx = -1
 							}
-							err = handleEntry(n, fl[idx], nil, nil)
+							f := fl[idx]
+							assert(strings.HasPrefix(f, input_path))
+							if n < optNumReader {
+								err = readEntry(n, f, nil, nil)
+							} else {
+								err = writeEntry(n, f, nil, nil)
+							}
 						}
 						if err != nil {
 							break
@@ -263,7 +291,7 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	assert(num_complete >= 0)
 	assert(num_interrupted >= 0)
 	assert(num_error >= 0)
-	assert(int(num_complete+num_interrupted+num_error) == optNumWorker)
+	assert(int(num_complete+num_interrupted+num_error) == optNumReader+optNumWriter)
 
 	return int(num_complete), int(num_interrupted), int(num_error), nil
 }

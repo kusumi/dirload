@@ -11,7 +11,7 @@ import (
 
 var (
 	linit bool = false
-	lfd   *os.File
+	lfp   *os.File
 )
 
 func initLog(name string) error {
@@ -25,19 +25,19 @@ func initLog(name string) error {
 	}
 
 	f := path.Join(u.HomeDir, "."+name+".log")
-	lfd, err := os.OpenFile(f, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	lfp, err := os.OpenFile(f, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.SetOutput(lfd)
+	log.SetOutput(lfp)
 
 	linit = true
 	dbg(strings.Repeat("=", 20))
-	dbg(lfd.Name())
+	dbg(lfp.Name())
 	if optVerbose {
-		fmt.Println(lfd.Name())
+		fmt.Println(lfp.Name())
 	}
 
 	return nil
@@ -48,7 +48,7 @@ func cleanupLog() {
 		return
 	}
 
-	lfd.Close()
+	lfp.Close()
 	linit = false
 }
 

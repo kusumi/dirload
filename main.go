@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -16,8 +18,9 @@ const (
 )
 
 var (
-	version            [3]int = [3]int{0, 2, 0}
-	optNumWorker       int
+	version            [3]int = [3]int{0, 3, 0}
+	optNumReader       int
+	optNumWriter       int
 	optNumRepeat       int
 	optTimeMinute      int
 	optTimeSecond      int
@@ -25,6 +28,7 @@ var (
 	optIgnoreDot       bool
 	optLstat           bool
 	optReadBufferSize  int
+	optReadSize        int
 	optPathIter        int
 	optFlistFile       string
 	optFlistFileCreate bool
@@ -48,14 +52,16 @@ func usage(progname string) {
 func main() {
 	progname := path.Base(os.Args[0])
 
-	opt_num_worker := flag.Int("num_worker", 1, "Number of worker Goroutines")
+	opt_num_reader := flag.Int("num_reader", 1, "Number of reader Goroutines")
+	opt_num_writer := flag.Int("num_writer", 0, "Number of writer Goroutines")
 	opt_num_repeat := flag.Int("num_repeat", -1, "Exit Goroutines after specified iterations if > 0")
 	opt_time_minute := flag.Int("time_minute", 0, "Exit Goroutines after sum of this and -time_second option if > 0")
 	opt_time_second := flag.Int("time_second", 0, "Exit Goroutines after sum of this and -time_minute option if > 0")
 	opt_stat_only := flag.Bool("stat_only", false, "Do not read file data")
-	opt_ignore_dot := flag.Bool("ignore_dot", false, "Ignore entry starts with .")
-	opt_lstat := flag.Bool("lstat", false, "Do not resolve symbolic link")
+	opt_ignore_dot := flag.Bool("ignore_dot", false, "Ignore entries start with .")
+	opt_lstat := flag.Bool("lstat", false, "Do not resolve symbolic links")
 	opt_read_buffer_size := flag.Int("read_buffer_size", 1<<16, "Read buffer size")
+	opt_read_size := flag.Int("read_size", -1, "Read size per file read, use < read_buffer_size random size if 0")
 	opt_path_iter := flag.String("path_iter", "walk", "<paths> iteration type [walk|ordered|reverse|random]")
 	opt_flist_file := flag.String("flist_file", "", "Path to flist file")
 	opt_flist_file_create := flag.Bool("flist_file_create", false, "Create flist file and exit")
@@ -66,9 +72,13 @@ func main() {
 
 	flag.Parse()
 	args := flag.Args()
-	optNumWorker = *opt_num_worker
-	if optNumWorker < 1 {
-		optNumWorker = 1
+	optNumReader = *opt_num_reader
+	if optNumReader < 1 {
+		optNumReader = 1
+	}
+	optNumWriter = *opt_num_writer
+	if optNumWriter < 0 {
+		optNumWriter = 0
 	}
 	optNumRepeat = *opt_num_repeat
 	optTimeMinute = *opt_time_minute
@@ -83,6 +93,10 @@ func main() {
 	optIgnoreDot = *opt_ignore_dot
 	optLstat = *opt_lstat
 	optReadBufferSize = *opt_read_buffer_size
+	optReadSize = *opt_read_size
+	if optReadSize < -1 {
+		optReadSize = -1
+	}
 	switch *opt_path_iter {
 	case "walk":
 		optPathIter = PATH_ITER_WALK
@@ -154,6 +168,16 @@ func main() {
 		input = append(input, absf)
 	}
 	dbg("input", input)
+	if optDebug {
+		for _, f := range input {
+			if writable, err := isDirWritable(f); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			} else {
+				dbgf("%s writable %t", f, writable)
+			}
+		}
+	}
 
 	if optFlistFileCreate {
 		if optFlistFile == "" {
@@ -173,6 +197,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	_, num_interrupted, num_error, err := dispatchWorker(input)
 	if err != nil {
 		fmt.Println(err)

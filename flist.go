@@ -55,14 +55,14 @@ func initFlist(input string, ignore_dot bool) ([]string, error) {
 }
 
 func loadFlistFile(flist_file string) ([]string, error) {
-	file, err := os.Open(flist_file)
+	fp, err := os.Open(flist_file)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer fp.Close()
 
 	var fl []string
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		fl = append(fl, scanner.Text())
 	}
@@ -86,13 +86,13 @@ func createFlistFile(input []string, flist_file string, ignore_dot bool) error {
 	}
 	sort.Strings(fl)
 
-	file, err := os.OpenFile(flist_file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	fp, err := os.OpenFile(flist_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer fp.Close()
 
-	w := bufio.NewWriter(file)
+	w := bufio.NewWriter(fp)
 	for _, s := range fl {
 		assert(filepath.IsAbs(s))
 		if _, err := w.WriteString(s + "\n"); err != nil {

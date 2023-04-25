@@ -1,4 +1,4 @@
-dirload ([v0.2.0](https://github.com/kusumi/dirload/releases/tag/v0.2.0))
+dirload ([v0.3.0](https://github.com/kusumi/dirload/releases/tag/v0.3.0))
 ========
 
 ## About
@@ -33,17 +33,21 @@ or
             Create flist file and exit
       -h    Print usage and exit
       -ignore_dot
-            Ignore entry starts with .
+            Ignore entries start with .
       -lstat
-            Do not resolve symbolic link
+            Do not resolve symbolic links
+      -num_reader int
+            Number of reader Goroutines (default 1)
       -num_repeat int
             Exit Goroutines after specified iterations if > 0 (default -1)
-      -num_worker int
-            Number of worker Goroutines (default 1)
+      -num_writer int
+            Number of writer Goroutines
       -path_iter string
             <paths> iteration type [walk|ordered|reverse|random] (default "walk")
       -read_buffer_size int
             Read buffer size (default 65536)
+      -read_size int
+            Read size per file read, use < read_buffer_size random size if 0 (default -1)
       -stat_only
             Do not read file data
       -time_minute int

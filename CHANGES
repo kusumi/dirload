@@ -1,3 +1,9 @@
+v0.3.0
+======
+- Add -read_size option
+- Add -num_writer option
+- Rename -num_worker option to -num_reader
+
 v0.2.0
 ======
 - Add -flist_file option

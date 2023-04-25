@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	numReader    int
 	inputPath    []string
 	timeBegin    []time.Time
 	timeEnd      []time.Time
@@ -15,10 +16,13 @@ var (
 	numStat      []uint64
 	numRead      []uint64
 	numReadBytes []uint64
+	numWrite     []uint64
 )
 
-func initStat(n int) {
+func initStat(nreader int, nwriter int) {
+	n := nreader + nwriter
 	assert(n > 0)
+	numReader = nreader
 	inputPath = make([]string, n)
 	timeBegin = make([]time.Time, n)
 	timeEnd = make([]time.Time, n)
@@ -26,6 +30,7 @@ func initStat(n int) {
 	numStat = make([]uint64, n)
 	numRead = make([]uint64, n)
 	numReadBytes = make([]uint64, n)
+	numWrite = make([]uint64, n)
 }
 
 func setInputPath(gid int, f string) {
@@ -55,6 +60,10 @@ func incNumRead(gid int) {
 func addNumReadBytes(gid int, siz int) {
 	assert(siz >= 0)
 	numReadBytes[gid] += uint64(siz)
+}
+
+func incNumWrite(gid int) {
+	numWrite[gid]++
 }
 
 func printStat() {
@@ -94,6 +103,14 @@ func printStat() {
 	for i := 0; i < len(numReadBytes); i++ {
 		if s := strconv.Itoa(int(numReadBytes[i])); len(s) > width_read_bytes {
 			width_read_bytes = len(s)
+		}
+	}
+
+	// write
+	width_write := len("write")
+	for i := 0; i < len(numWrite); i++ {
+		if s := strconv.Itoa(int(numWrite[i])); len(s) > width_write {
+			width_write = len(s)
 		}
 	}
 
@@ -139,16 +156,20 @@ func printStat() {
 	}
 
 	tfmt := strings.Repeat(" ", 1+width_index+1)
-	tfmt += fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds\n",
-		width_repeat, width_stat, width_read, width_read_bytes, width_sec, width_mibs, width_path)
-	s := fmt.Sprintf(tfmt, "repeat", "stat", "read", "read[B]", "sec", "MiB/sec", "path")
+	tfmt += fmt.Sprintf("%%-6s %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds\n",
+		width_repeat, width_stat, width_read, width_read_bytes, width_write, width_sec, width_mibs, width_path)
+	s := fmt.Sprintf(tfmt, "type", "repeat", "stat", "read", "read[B]", "write", "sec", "MiB/sec", "path")
 	fmt.Print(s)
 	fmt.Println(strings.Repeat("-", len(s)))
 
-	sfmt := fmt.Sprintf("#%%-%ds %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
-		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_sec, width_mibs)
+	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
+		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_sec, width_mibs)
 	for i := 0; i < len(numStat); i++ {
-		fmt.Printf(sfmt, strconv.Itoa(i), numRepeat[i], numStat[i],
-			numRead[i], numReadBytes[i], numSec[i], numMibs[i], inputPath[i])
+		s := "reader"
+		if i >= numReader {
+			s = "writer"
+		}
+		fmt.Printf(sfmt, strconv.Itoa(i), s, numRepeat[i], numStat[i],
+			numRead[i], numReadBytes[i], numWrite[i], numSec[i], numMibs[i], inputPath[i])
 	}
 }

@@ -94,6 +94,22 @@ func isDotPath(f string) bool {
 	return strings.HasPrefix(path.Base(f), ".") || strings.Contains(f, "/.")
 }
 
+func isDirWritable(f string) (bool, error) {
+	if t, err := getRawFileType(f); err != nil {
+		return false, err
+	} else if t != DIR {
+		return false, fmt.Errorf("%s not directory", f)
+	}
+
+	if dir, err := os.MkdirTemp(f, "dirload"); err != nil {
+		return false, nil // assume readonly
+	} else if err := os.Remove(dir); err != nil {
+		return false, err
+	} else {
+		return true, nil // read+write
+	}
+}
+
 func assert(c bool) {
 	kassert(c, "Assert failed")
 }

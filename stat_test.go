@@ -6,7 +6,7 @@ import (
 
 func Test_initStat(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	if n := len(numRepeat); n != siz {
 		t.Error(n)
@@ -40,7 +40,7 @@ func Test_initStat(t *testing.T) {
 
 func Test_setTime(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	for i := 0; i < len(timeBegin); i++ {
 		setTimeBegin(i)
@@ -56,7 +56,7 @@ func Test_setTime(t *testing.T) {
 
 func Test_incNumRepeat(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	gid := 5
 	incNumRepeat(gid)
@@ -87,7 +87,7 @@ func Test_incNumRepeat(t *testing.T) {
 
 func Test_incNumStat(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	gid := 5
 	incNumStat(gid)
@@ -118,7 +118,7 @@ func Test_incNumStat(t *testing.T) {
 
 func Test_incNumRead(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	gid := 5
 	incNumRead(gid)
@@ -149,7 +149,7 @@ func Test_incNumRead(t *testing.T) {
 
 func Test_addNumReadBytes(t *testing.T) {
 	siz := 10
-	initStat(siz)
+	initStat(siz, 0)
 
 	gid := 5
 	rdsiz := 1234

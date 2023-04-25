@@ -118,6 +118,33 @@ func Test_isDotPath(t *testing.T) {
 	}
 }
 
+func Test_isDirWritable(t *testing.T) {
+	writable_list := []string{
+		"/tmp"}
+	for _, f := range writable_list {
+		if writable, err := isDirWritable(f); !writable || err != nil {
+			t.Error(f)
+		}
+	}
+
+	unwritable_list := []string{
+		"/proc"}
+	for _, f := range unwritable_list {
+		if writable, err := isDirWritable(f); writable || err != nil {
+			t.Error(f)
+		}
+	}
+
+	invalid_list := []string{
+		"/proc/vmstat", // regular file
+		"516e7cb4-6ecf-11d6-8ff8-00022d09712b"}
+	for _, f := range invalid_list {
+		if writable, err := isDirWritable(f); writable || err == nil {
+			t.Error(f)
+		}
+	}
+}
+
 func Test_assert(t *testing.T) {
 	assert(true)
 	assert(!false)
