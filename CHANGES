@@ -1,3 +1,8 @@
+v0.3.1
+======
+- Add -force option
+- Fix os.Exit code on -flist_file_create
+
 v0.3.0
 ======
 - Add -read_size option

@@ -1,4 +1,4 @@
-dirload ([v0.3.0](https://github.com/kusumi/dirload/releases/tag/v0.3.0))
+dirload ([v0.3.1](https://github.com/kusumi/dirload/releases/tag/v0.3.1))
 ========
 
 ## About
@@ -31,6 +31,8 @@ or
             Path to flist file
       -flist_file_create
             Create flist file and exit
+      -force
+            Enable force mode
       -h    Print usage and exit
       -ignore_dot
             Ignore entries start with .

@@ -70,9 +70,17 @@ func loadFlistFile(flist_file string) ([]string, error) {
 	return fl, scanner.Err()
 }
 
-func createFlistFile(input []string, flist_file string, ignore_dot bool) error {
+func createFlistFile(input []string, flist_file string, ignore_dot bool, force bool) error {
 	if _, err := os.Stat(flist_file); err == nil {
-		return fmt.Errorf("%s exists", flist_file)
+		if force {
+			if err := os.Remove(flist_file); err != nil {
+				return err
+			} else {
+				fmt.Println("Removed", flist_file)
+			}
+		} else {
+			return fmt.Errorf("%s exists", flist_file)
+		}
 	}
 
 	var fl []string

@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	version            [3]int = [3]int{0, 3, 0}
+	version            [3]int = [3]int{0, 3, 1}
 	optNumReader       int
 	optNumWriter       int
 	optNumRepeat       int
@@ -32,6 +32,7 @@ var (
 	optPathIter        int
 	optFlistFile       string
 	optFlistFileCreate bool
+	optForce           bool
 	optVerbose         bool
 	optDebug           bool
 )
@@ -65,6 +66,7 @@ func main() {
 	opt_path_iter := flag.String("path_iter", "walk", "<paths> iteration type [walk|ordered|reverse|random]")
 	opt_flist_file := flag.String("flist_file", "", "Path to flist file")
 	opt_flist_file_create := flag.Bool("flist_file_create", false, "Create flist file and exit")
+	opt_force := flag.Bool("force", false, "Enable force mode")
 	opt_verbose := flag.Bool("verbose", false, "Enable verbose print")
 	opt_debug := flag.Bool("debug", false, "Create debug log file under home directory")
 	opt_version := flag.Bool("v", false, "Print version and exit")
@@ -112,6 +114,7 @@ func main() {
 	}
 	optFlistFile = *opt_flist_file
 	optFlistFileCreate = *opt_flist_file_create
+	optForce = *opt_force
 	optVerbose = *opt_verbose
 	optDebug = *opt_debug
 
@@ -184,7 +187,7 @@ func main() {
 			fmt.Println("Empty flist file path")
 			os.Exit(1)
 		}
-		if err := createFlistFile(input, optFlistFile, optIgnoreDot); err != nil {
+		if err := createFlistFile(input, optFlistFile, optIgnoreDot, optForce); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -194,7 +197,7 @@ func main() {
 		} else {
 			fmt.Printf("%+v\n", info)
 		}
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	rand.Seed(time.Now().UnixNano())
