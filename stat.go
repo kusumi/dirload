@@ -9,6 +9,7 @@ import (
 
 var (
 	numReader    int
+	numWriter    int
 	inputPath    []string
 	timeBegin    []time.Time
 	timeEnd      []time.Time
@@ -23,6 +24,7 @@ func initStat(nreader int, nwriter int) {
 	n := nreader + nwriter
 	assert(n > 0)
 	numReader = nreader
+	numWriter = nwriter
 	inputPath = make([]string, n)
 	timeBegin = make([]time.Time, n)
 	timeEnd = make([]time.Time, n)
@@ -73,6 +75,8 @@ func printStat() {
 	assert(len(numRepeat) == len(numStat))
 	assert(len(numStat) == len(numRead))
 	assert(len(numRead) == len(numReadBytes))
+	assert(len(numReadBytes) == len(numWrite))
+	assert(len(numWrite) == len(inputPath))
 
 	// repeat
 	width_repeat := len("repeat")
@@ -149,8 +153,9 @@ func printStat() {
 	}
 
 	// index
+	nlines := numReader + numWriter
 	width_index := 1
-	if n := len(numStat); n > 0 {
+	if n := nlines; n > 0 {
 		n -= 1 // gid starts from 0
 		width_index = len(strconv.Itoa(n))
 	}
@@ -164,7 +169,7 @@ func printStat() {
 
 	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
 		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_sec, width_mibs)
-	for i := 0; i < len(numStat); i++ {
+	for i := 0; i < nlines; i++ {
 		s := "reader"
 		if i >= numReader {
 			s = "writer"

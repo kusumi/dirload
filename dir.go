@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -33,11 +32,7 @@ func assertFilePath(f string) {
 	assert(!strings.HasSuffix(f, "/"))
 }
 
-func readEntry(gid int, f string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
+func readEntry(gid int, f string) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {
@@ -155,11 +150,7 @@ func readFile(gid int, f string) error {
 	return nil
 }
 
-func writeEntry(gid int, f string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
+func writeEntry(gid int, f string) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {

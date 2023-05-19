@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+const (
+	PATH_ITER_WALK = iota
+	PATH_ITER_ORDERED
+	PATH_ITER_REVERSE
+	PATH_ITER_RANDOM
+)
+
 type workerInterrupt struct {
 	err error
 }
@@ -85,19 +92,18 @@ func setupFlist(input []string) ([][]string, error) {
 	}
 
 	// setup flist for non-walk iterations
-	var fls [][]string
 	if optPathIter == PATH_ITER_WALK {
 		for _, f := range input {
 			fmt.Println("walk", f)
 		}
 		return nil, nil
 	} else {
-		var err error
-		if fls, err = setupFlistImpl(input); err != nil {
+		if fls, err := setupFlistImpl(input); err != nil {
 			return nil, err
+		} else {
+			assert(len(input) == len(fls))
+			return fls, nil
 		}
-		assert(len(input) == len(fls))
-		return fls, nil
 	}
 }
 
@@ -214,10 +220,13 @@ func dispatchWorker(input []string) (int, int, int, error) {
 								return &workerTimer{}
 							default:
 								assert(strings.HasPrefix(f, input_path))
+								if err != nil {
+									return err
+								}
 								if n < optNumReader {
-									return readEntry(n, f, d, err)
+									return readEntry(n, f)
 								} else {
-									return writeEntry(n, f, d, err)
+									return writeEntry(n, f)
 								}
 							}
 						})
@@ -246,9 +255,9 @@ func dispatchWorker(input []string) (int, int, int, error) {
 							f := fl[idx]
 							assert(strings.HasPrefix(f, input_path))
 							if n < optNumReader {
-								err = readEntry(n, f, nil, nil)
+								err = readEntry(n, f)
 							} else {
-								err = writeEntry(n, f, nil, nil)
+								err = writeEntry(n, f)
 							}
 						}
 						if err != nil {

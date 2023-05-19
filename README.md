@@ -1,4 +1,4 @@
-dirload ([v0.3.1](https://github.com/kusumi/dirload/releases/tag/v0.3.1))
+dirload ([v0.3.2](https://github.com/kusumi/dirload/releases/tag/v0.3.2))
 ========
 
 ## About

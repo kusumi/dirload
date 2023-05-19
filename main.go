@@ -10,15 +10,8 @@ import (
 	"time"
 )
 
-const (
-	PATH_ITER_WALK = iota
-	PATH_ITER_ORDERED
-	PATH_ITER_REVERSE
-	PATH_ITER_RANDOM
-)
-
 var (
-	version            [3]int = [3]int{0, 3, 1}
+	version            [3]int = [3]int{0, 3, 2}
 	optNumReader       int
 	optNumWriter       int
 	optNumRepeat       int
