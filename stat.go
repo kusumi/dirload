@@ -8,21 +8,22 @@ import (
 )
 
 var (
-	numReader    int
-	numWriter    int
-	inputPath    []string
-	timeBegin    []time.Time
-	timeEnd      []time.Time
-	numRepeat    []uint64
-	numStat      []uint64
-	numRead      []uint64
-	numReadBytes []uint64
-	numWrite     []uint64
+	numReader     int
+	numWriter     int
+	inputPath     []string
+	timeBegin     []time.Time
+	timeEnd       []time.Time
+	numRepeat     []uint64
+	numStat       []uint64
+	numRead       []uint64
+	numReadBytes  []uint64
+	numWrite      []uint64
+	numWriteBytes []uint64
 )
 
 func initStat(nreader int, nwriter int) {
 	n := nreader + nwriter
-	assert(n > 0)
+	assert(n >= 0)
 	numReader = nreader
 	numWriter = nwriter
 	inputPath = make([]string, n)
@@ -33,6 +34,7 @@ func initStat(nreader int, nwriter int) {
 	numRead = make([]uint64, n)
 	numReadBytes = make([]uint64, n)
 	numWrite = make([]uint64, n)
+	numWriteBytes = make([]uint64, n)
 }
 
 func setInputPath(gid int, f string) {
@@ -68,6 +70,11 @@ func incNumWrite(gid int) {
 	numWrite[gid]++
 }
 
+func addNumWriteBytes(gid int, siz int) {
+	assert(siz >= 0)
+	numWriteBytes[gid] += uint64(siz)
+}
+
 func printStat() {
 	assert(len(inputPath) == len(timeBegin))
 	assert(len(timeBegin) == len(timeEnd))
@@ -76,7 +83,8 @@ func printStat() {
 	assert(len(numStat) == len(numRead))
 	assert(len(numRead) == len(numReadBytes))
 	assert(len(numReadBytes) == len(numWrite))
-	assert(len(numWrite) == len(inputPath))
+	assert(len(numWrite) == len(numWriteBytes))
+	assert(len(numWriteBytes) == len(inputPath))
 
 	// repeat
 	width_repeat := len("repeat")
@@ -118,6 +126,14 @@ func printStat() {
 		}
 	}
 
+	// write[B]
+	width_write_bytes := len("write[B]")
+	for i := 0; i < len(numWriteBytes); i++ {
+		if s := strconv.Itoa(int(numWriteBytes[i])); len(s) > width_write_bytes {
+			width_write_bytes = len(s)
+		}
+	}
+
 	// sec
 	numSec := make([]float64, len(timeBegin))
 	for i := 0; i < len(numSec); i++ {
@@ -133,7 +149,7 @@ func printStat() {
 	// MiB/sec
 	numMibs := make([]float64, len(numReadBytes))
 	for i := 0; i < len(numMibs); i++ {
-		mib := float64(numReadBytes[i]) / (1 << 20)
+		mib := float64(numReadBytes[i]+numWriteBytes[i]) / (1 << 20)
 		numMibs[i] = mib / numSec[i]
 	}
 	width_mibs := len("MiB/sec")
@@ -161,20 +177,20 @@ func printStat() {
 	}
 
 	tfmt := strings.Repeat(" ", 1+width_index+1)
-	tfmt += fmt.Sprintf("%%-6s %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds\n",
-		width_repeat, width_stat, width_read, width_read_bytes, width_write, width_sec, width_mibs, width_path)
-	s := fmt.Sprintf(tfmt, "type", "repeat", "stat", "read", "read[B]", "write", "sec", "MiB/sec", "path")
+	tfmt += fmt.Sprintf("%%-6s %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds\n",
+		width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs, width_path)
+	s := fmt.Sprintf(tfmt, "type", "repeat", "stat", "read", "read[B]", "write", "write[B]", "sec", "MiB/sec", "path")
 	fmt.Print(s)
 	fmt.Println(strings.Repeat("-", len(s)))
 
-	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
-		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_sec, width_mibs)
+	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
+		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs)
 	for i := 0; i < nlines; i++ {
 		s := "reader"
 		if i >= numReader {
 			s = "writer"
 		}
 		fmt.Printf(sfmt, strconv.Itoa(i), s, numRepeat[i], numStat[i],
-			numRead[i], numReadBytes[i], numWrite[i], numSec[i], numMibs[i], inputPath[i])
+			numRead[i], numReadBytes[i], numWrite[i], numWriteBytes[i], numSec[i], numMibs[i], inputPath[i])
 	}
 }

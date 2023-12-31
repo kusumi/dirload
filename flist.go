@@ -11,7 +11,7 @@ import (
 
 func initFlist(input string, ignore_dot bool) ([]string, error) {
 	var l []string
-	err := filepath.WalkDir(input,
+	if err := filepath.WalkDir(input,
 		func(f string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -50,8 +50,10 @@ func initFlist(input string, ignore_dot bool) ([]string, error) {
 				panicFileType(f, "unknown", t)
 			}
 			return nil
-		})
-	return l, err
+		}); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func loadFlistFile(flist_file string) ([]string, error) {

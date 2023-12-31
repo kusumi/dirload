@@ -29,6 +29,10 @@ func globalUnlock() {
 	gl_ch <- 1
 }
 
+func isLinux() bool {
+	return runtime.GOOS == "linux"
+}
+
 func isWindows() bool {
 	return runtime.GOOS == "windows"
 }
@@ -54,7 +58,7 @@ func getRawFileType(f string) (fileType, error) {
 		return INVALID, err
 	}
 
-	return getModeType(info.Mode())
+	return getModeType(info.Mode()), nil
 }
 
 func getFileType(f string) (fileType, error) {
@@ -63,22 +67,22 @@ func getFileType(f string) (fileType, error) {
 		return INVALID, err
 	}
 
-	return getModeType(info.Mode())
+	return getModeType(info.Mode()), nil
 }
 
-func getModeType(m fs.FileMode) (fileType, error) {
+func getModeType(m fs.FileMode) fileType {
 	if m.IsDir() {
-		return DIR, nil
+		return DIR
 	} else if m.IsRegular() {
-		return REG, nil
+		return REG
 	} else if m&fs.ModeDevice != 0 {
 		// XXX assuming blk on Linux, chr on *BSD
-		return DEVICE, nil
+		return DEVICE
 	} else if m&fs.ModeSymlink != 0 {
-		return SYMLINK, nil
+		return SYMLINK
 	}
 
-	return UNSUPPORTED, nil
+	return UNSUPPORTED
 }
 
 func pathExists(f string) (bool, error) {
@@ -101,13 +105,29 @@ func isDirWritable(f string) (bool, error) {
 		return false, fmt.Errorf("%s not directory", f)
 	}
 
-	if dir, err := os.MkdirTemp(f, "dirload"); err != nil {
+	if dir, err := os.MkdirTemp(f, "dirload_write_test_"); err != nil {
 		return false, nil // assume readonly
 	} else if err := os.Remove(dir); err != nil {
 		return false, err
 	} else {
 		return true, nil // read+write
 	}
+}
+
+func removeDupString(input []string) []string {
+	var l []string
+	for _, a := range input {
+		exists := false
+		for _, b := range l {
+			if a == b {
+				exists = true
+			}
+		}
+		if !exists {
+			l = append(l, a)
+		}
+	}
+	return l
 }
 
 func assert(c bool) {

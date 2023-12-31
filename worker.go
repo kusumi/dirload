@@ -37,6 +37,22 @@ func (this *workerTimer) Error() string {
 	return fmt.Sprint(this.err)
 }
 
+func gidToRid(gid int) int {
+	return gid
+}
+
+func gidToWid(gid int) int {
+	return gid - optNumReader
+}
+
+func isReader(gid int) bool {
+	return !isWriter(gid)
+}
+
+func isWriter(gid int) bool {
+	return gidToWid(gid) >= 0
+}
+
 func setupFlistImpl(input []string) ([][]string, error) {
 	fls := make([][]string, len(input))
 	if optFlistFile != "" {
@@ -88,13 +104,13 @@ func setupFlist(input []string) ([][]string, error) {
 	// using flist file means not walking input directories
 	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
 		optPathIter = PATH_ITER_ORDERED
-		fmt.Println("using flist, force -path_iter=ordered")
+		fmt.Println("Using flist, force -path_iter=ordered")
 	}
 
 	// setup flist for non-walk iterations
 	if optPathIter == PATH_ITER_WALK {
 		for _, f := range input {
-			fmt.Println("walk", f)
+			fmt.Println("Walk", f)
 		}
 		return nil, nil
 	} else {
@@ -107,9 +123,30 @@ func setupFlist(input []string) ([][]string, error) {
 	}
 }
 
-func dispatchWorker(input []string) (int, int, int, error) {
+func debugPrintComplete(gid int, repeat int, err error) {
+	var t string
+	if isReader(gid) {
+		t = "reader"
+	} else {
+		t = "writer"
+	}
+	// golangci-lint warns use of %w for error
+	msg := fmt.Sprintf("#%d %s complete - repeat %d iswritedone %t error %s",
+		gid, t, repeat, isWriteDone(gid), err)
+	dbg(msg)
+	if optDebug {
+		fmt.Println(msg)
+	}
+}
+
+func dispatchWorker(input []string) (int, int, int, int, error) {
 	for _, f := range input {
 		assert(filepath.IsAbs(f))
+	}
+
+	// number of readers and writers are 0 by default
+	if optNumReader == 0 && optNumWriter == 0 {
+		return 0, 0, 0, 0, nil
 	}
 
 	// initialize common variables among goroutines
@@ -125,11 +162,13 @@ func dispatchWorker(input []string) (int, int, int, error) {
 
 	// initialize per goroutine variables
 	initReadBuffer(optNumReader, optReadBufferSize)
+	initWriteBuffer(optNumWriter, optWriteBufferSize)
+	initWritePaths(optNumWriter)
 	initStat(optNumReader, optNumWriter)
 
 	fls, err := setupFlist(input)
 	if err != nil {
-		return -1, -1, -1, err
+		return -1, -1, -1, -1, err
 	}
 
 	// signal handler goroutine
@@ -157,8 +196,8 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	// worker goroutines
 	for i := 0; i < optNumReader+optNumWriter; i++ {
 		wg.Add(1)
-		n := i
-		setTimeBegin(n)
+		gid := i
+		setTimeBegin(gid)
 		go func() {
 			defer wg.Done()
 			defer func() {
@@ -172,7 +211,7 @@ func dispatchWorker(input []string) (int, int, int, error) {
 						signal_ch <- 1
 					}
 				}
-				setTimeEnd(n)
+				setTimeEnd(gid)
 			}()
 
 			// set timer for this goroutine if specified
@@ -184,27 +223,12 @@ func dispatchWorker(input []string) (int, int, int, error) {
 			}
 
 			// set input path for this goroutine
-			input_path := input[n%len(input)]
-			setInputPath(n, input_path)
-
-			// writer only writes against readonly mount
-			if n >= optNumReader {
-				if writable, err := isDirWritable(input_path); err != nil {
-					dbgf("#%d %s", n, err)
-					fmt.Println(err)
-					atomic.AddInt32(&num_complete, 1)
-					return
-				} else if writable {
-					dbgf("#%d %s not readonly mounted", n, input_path)
-					fmt.Println(input_path, "not readonly mounted")
-					atomic.AddInt32(&num_complete, 1)
-					return
-				}
-			}
+			input_path := input[gid%len(input)]
+			setInputPath(gid, input_path)
 
 			// start loop
 			repeat := 0
-			dbgf("#%d start", n)
+			dbgf("#%d start", gid)
 			for {
 				// either walk or select from input path
 				var err error
@@ -213,32 +237,32 @@ func dispatchWorker(input []string) (int, int, int, error) {
 						func(f string, d fs.DirEntry, err error) error {
 							select {
 							case <-interrupt_ch:
-								dbgf("#%d interrupt", n)
+								dbgf("#%d interrupt", gid)
 								return &workerInterrupt{}
 							case <-timer_ch:
-								dbgf("#%d timer", n)
+								dbgf("#%d timer", gid)
 								return &workerTimer{}
 							default:
 								assert(strings.HasPrefix(f, input_path))
 								if err != nil {
 									return err
 								}
-								if n < optNumReader {
-									return readEntry(n, f)
+								if isReader(gid) {
+									return readEntry(gid, f)
 								} else {
-									return writeEntry(n, f)
+									return writeEntry(gid, f)
 								}
 							}
 						})
 				} else {
-					fl := fls[n%len(fls)]
+					fl := fls[gid%len(fls)]
 					for j := 0; j < len(fl); j++ {
 						select {
 						case <-interrupt_ch:
-							dbgf("#%d interrupt", n)
+							dbgf("#%d interrupt", gid)
 							err = &workerInterrupt{}
 						case <-timer_ch:
-							dbgf("#%d timer", n)
+							dbgf("#%d timer", gid)
 							err = &workerTimer{}
 						default:
 							var idx int
@@ -254,10 +278,10 @@ func dispatchWorker(input []string) (int, int, int, error) {
 							}
 							f := fl[idx]
 							assert(strings.HasPrefix(f, input_path))
-							if n < optNumReader {
-								err = readEntry(n, f)
+							if isReader(gid) {
+								err = readEntry(gid, f)
 							} else {
-								err = writeEntry(n, f)
+								err = writeEntry(gid, f)
 							}
 						}
 						if err != nil {
@@ -271,24 +295,34 @@ func dispatchWorker(input []string) (int, int, int, error) {
 					case *workerInterrupt:
 						atomic.AddInt32(&num_interrupted, 1)
 					case *workerTimer:
+						debugPrintComplete(gid, repeat, err)
 						atomic.AddInt32(&num_complete, 1)
 					default:
-						dbgf("#%d %s", n, err)
+						dbgf("#%d %s", gid, err)
 						fmt.Println(err)
 						atomic.AddInt32(&num_error, 1)
 					}
 					return // not break
 				}
 				// otherwise continue until optNumRepeat if specified
-				incNumRepeat(n)
+				incNumRepeat(gid)
 				repeat++
 				if optNumRepeat > 0 && repeat >= optNumRepeat {
+					break // usually only readers break from here
+				}
+				if isWriter(gid) && isWriteDone(gid) {
 					break
 				}
 			}
-			assert(optNumRepeat > 0)
-			assert(repeat >= optNumRepeat)
-			dbgf("#%d done %d", n, repeat)
+
+			if isReader(gid) {
+				assert(optNumRepeat > 0)
+				assert(repeat >= optNumRepeat)
+			} else {
+				assert(isWriteDone(gid))
+			}
+
+			debugPrintComplete(gid, repeat, nil)
 			atomic.AddInt32(&num_complete, 1)
 		}()
 	}
@@ -302,5 +336,9 @@ func dispatchWorker(input []string) (int, int, int, error) {
 	assert(num_error >= 0)
 	assert(int(num_complete+num_interrupted+num_error) == optNumReader+optNumWriter)
 
-	return int(num_complete), int(num_interrupted), int(num_error), nil
+	if num_remain, err := cleanupWritePaths(); err != nil {
+		return -1, -1, -1, -1, err
+	} else {
+		return int(num_complete), int(num_interrupted), int(num_error), num_remain, nil
+	}
 }

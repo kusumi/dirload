@@ -119,6 +119,10 @@ func Test_isDotPath(t *testing.T) {
 }
 
 func Test_isDirWritable(t *testing.T) {
+	if !isLinux() {
+		return
+	}
+
 	writable_list := []string{
 		"/tmp"}
 	for _, f := range writable_list {
@@ -141,6 +145,74 @@ func Test_isDirWritable(t *testing.T) {
 	for _, f := range invalid_list {
 		if writable, err := isDirWritable(f); writable || err == nil {
 			t.Error(f)
+		}
+	}
+}
+
+func Test_removeDupString(t *testing.T) {
+	uniq_ll := [][]string{
+		{""},
+		{"/path/to/xxx"},
+		{"/path/to/xxx", "/path/to/yyy"},
+		{"xxx1", "xxx2"},
+		{"xxx1", "xxx2", "xxx3"},
+		{"xxx1", "xxx2", "xxx3", "xxx4"},
+		{"xxx1", "xxx2", "xxx3", ""},
+		{"a", "b", "c", "d", "e", "f"},
+	}
+	for _, l := range uniq_ll {
+		x := removeDupString(l)
+		for i := range x {
+			for j := range x {
+				if i != j {
+					if x[i] == x[j] {
+						t.Error(i, j, x)
+					}
+				}
+			}
+		}
+		if len(l) != len(x) {
+			t.Error(l, x)
+		}
+		for i := range x {
+			if l[i] != x[i] {
+				t.Error(i, l, x)
+			}
+		}
+	}
+
+	dup_ll := [][]string{
+		{"", ""},
+		{"", "", ""},
+		{"/path/to/xxx", "/path/to/xxx"},
+		{"xxx1", "xxx2", "xxx1"},
+		{"xxx1", "xxx2", "xxx1", "xxx1"},
+		{"xxx1", "xxx1", "xxx2", "xxx1"},
+		{"xxx1", "xxx2", "xxx1", "xxx2"},
+		{"a", "b", "c", "d", "e", "f", "a", "b", "c", "d", "e", "f"},
+	}
+	for _, l := range dup_ll {
+		x := removeDupString(l)
+		for i := range x {
+			for j := range x {
+				if i != j {
+					if x[i] == x[j] {
+						t.Error(i, j, x)
+					}
+				}
+			}
+		}
+		if len(l) <= len(x) {
+			t.Error(l, x)
+		}
+		xx := removeDupString(x)
+		if len(x) != len(xx) {
+			t.Error(x, xx)
+		}
+		for i := range x {
+			if x[i] != xx[i] {
+				t.Error(i, x, xx)
+			}
 		}
 	}
 }
