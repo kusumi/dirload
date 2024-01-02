@@ -1,3 +1,8 @@
+v0.4.1
+======
+- writer: Add symlink / hardlink
+- Misc fixes
+
 v0.4.0
 ======
 - Add write support for writers

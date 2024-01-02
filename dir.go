@@ -20,6 +20,7 @@ var (
 	writePathsCounter []uint64
 	writePathsTs      string
 	writePathsPrefix  string
+	writePathsType    []fileType
 )
 
 func init() {
@@ -55,7 +56,7 @@ func initWriteBuffer(n int, bufsiz int) {
 	}
 }
 
-func initWritePaths(n int) {
+func initWritePaths(n int, write_paths_type string) {
 	assert(n >= 0)
 	writePaths = make([][]string, n)
 	writePathsCounter = make([]uint64, n)
@@ -69,16 +70,34 @@ func initWritePaths(n int) {
 
 	writePathsTs = time.Now().Format("20060102150405")
 	assert(len(writePathsPrefix) != 0)
+
+	writePathsType = make([]fileType, len(write_paths_type))
+	for i, x := range write_paths_type {
+		var t fileType
+		switch x {
+		case 'd':
+			t = DIR
+		case 'r':
+			t = REG
+		case 's':
+			t = SYMLINK
+		case 'l':
+			t = LINK
+		default:
+			assert(false)
+		}
+		writePathsType[i] = t
+	}
 }
 
-func cleanupWritePaths() (int, error) {
+func cleanupWritePaths(keep_write_paths bool) (int, error) {
 	var l []string
 	for i := 0; i < len(writePaths); i++ {
 		l = append(l, writePaths[i]...)
 	}
 
 	num_remain := 0
-	if optKeepWritePaths {
+	if keep_write_paths {
 		num_remain += len(l)
 	} else {
 		if l, err := unlinkWritePaths(l, -1); err != nil {
@@ -105,7 +124,7 @@ func unlinkWritePaths(l []string, count int) ([]string, error) {
 		f := l[len(l)-1]
 		if t, err := getRawFileType(f); err != nil {
 			return l, err
-		} else if t == DIR || t == REG {
+		} else if t == DIR || t == REG || t == SYMLINK {
 			if exists, err := pathExists(f); err != nil {
 				return l, err
 			} else if !exists {
@@ -150,7 +169,7 @@ func readEntry(gid int, f string) error {
 		}
 	}
 
-	// beyond this is for read or readlink
+	// beyond this is for file read
 	if optStatOnly {
 		return nil
 	}
@@ -259,14 +278,29 @@ func writeEntry(gid int, f string) error {
 	// stats by dirwalk itself are not counted
 	incNumStat(gid)
 
+	// ignore . entries if specified
+	if optIgnoreDot {
+		// XXX want retval to ignore children for .directory
+		if t != DIR {
+			if isDotPath(f) {
+				return nil
+			}
+		}
+	}
+
+	// beyond this is for file write
+	if optStatOnly {
+		return nil
+	}
+
 	switch t {
 	case DIR:
-		if err := writeFile(gid, f); err != nil {
+		if err := writeFile(gid, f, f); err != nil {
 			return err
 		}
 		return nil
 	case REG:
-		if err := writeFile(gid, filepath.Dir(f)); err != nil {
+		if err := writeFile(gid, filepath.Dir(f), f); err != nil {
 			return err
 		}
 		return nil
@@ -286,15 +320,9 @@ func writeEntry(gid int, f string) error {
 	return nil
 }
 
-func writeFile(gid int, f string) error {
+func writeFile(gid int, d string, f string) error {
 	if isWriteDone(gid) {
 		return nil
-	}
-
-	if t, err := getFileType(f); err != nil {
-		return err
-	} else {
-		assert(t == DIR)
 	}
 
 	wid := gidToWid(gid)
@@ -302,24 +330,38 @@ func writeFile(gid int, f string) error {
 		getWritePathsBase(), wid, writePathsTs, writePathsCounter[wid])
 	writePathsCounter[wid]++
 
-	newf := filepath.Join(f, newb)
-	t := rand.Intn(2)
-	if t == 0 {
-		if err := os.Mkdir(newf, 0644); err != nil {
+	newf := filepath.Join(d, newb)
+	t := writePathsType[rand.Intn(len(writePathsType))]
+	if err := creatInode(f, newf, t); err != nil {
+		return err
+	} else {
+		if exists, err := pathExists(newf); err != nil {
 			return err
+		} else {
+			assert(exists)
+			if optFsyncWritePaths {
+				if fp, err := os.Open(newf); err != nil {
+					return err
+				} else {
+					defer fp.Close()
+					if err := fp.Sync(); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		writePaths[wid] = append(writePaths[wid], newf)
-		incNumWrite(gid)
-		return nil
+		if t != REG {
+			incNumWrite(gid)
+			return nil
+		}
 	}
-	assert(t == 1)
 
-	fp, err := os.Create(newf)
+	fp, err := os.OpenFile(newf, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer fp.Close()
-	writePaths[wid] = append(writePaths[wid], newf)
 
 	b := writeBuffer[wid]
 	resid := optWriteSize // negative resid means no write
@@ -355,6 +397,42 @@ func writeFile(gid int, f string) error {
 		}
 	}
 
+	if optFsyncWritePaths {
+		if err := fp.Sync(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func creatInode(oldf string, newf string, t fileType) error {
+	if t == LINK {
+		if t, err := getRawFileType(oldf); err != nil {
+			return err
+		} else if t == REG {
+			if err := os.Link(oldf, newf); err != nil {
+				return err
+			}
+			return nil
+		}
+		t = DIR // create a directory instead
+	}
+
+	if t == DIR {
+		if err := os.Mkdir(newf, 0644); err != nil {
+			return err
+		}
+	} else if t == REG {
+		if fp, err := os.Create(newf); err != nil {
+			return err
+		} else {
+			defer fp.Close()
+		}
+	} else if t == SYMLINK {
+		if err := os.Symlink(oldf, newf); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -381,7 +459,7 @@ func collectWritePaths(input []string) ([]string, error) {
 				assertFilePath(f)
 				if t, err := getRawFileType(f); err != nil {
 					return err
-				} else if t == DIR || t == REG {
+				} else if t == DIR || t == REG || t == SYMLINK {
 					if strings.HasPrefix(path.Base(f), b) {
 						l = append(l, f)
 					}

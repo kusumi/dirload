@@ -1,4 +1,4 @@
-dirload ([v0.4.0](https://github.com/kusumi/dirload/releases/tag/v0.4.0))
+dirload ([v0.4.1](https://github.com/kusumi/dirload/releases/tag/v0.4.1))
 ========
 
 ## About
@@ -35,6 +35,8 @@ or
             Create flist file and exit
       -force
             Enable force mode
+      -fsync_write_paths
+            fsync(2) write paths
       -h    Print usage and exit
       -ignore_dot
             Ignore entries start with .
@@ -68,7 +70,9 @@ or
       -write_buffer_size int
             Write buffer size (default 65536)
       -write_paths_base string
-            Base name for write paths
+            Base name for write paths (default "x")
+      -write_paths_type string
+            File types for write paths [d|r|s|l] (default "dr")
       -write_size int
             Write residual size per file write, use < write_buffer_size random size if 0 (default -1)
 

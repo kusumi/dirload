@@ -163,7 +163,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 	// initialize per goroutine variables
 	initReadBuffer(optNumReader, optReadBufferSize)
 	initWriteBuffer(optNumWriter, optWriteBufferSize)
-	initWritePaths(optNumWriter)
+	initWritePaths(optNumWriter, optWritePathsType)
 	initStat(optNumReader, optNumWriter)
 
 	fls, err := setupFlist(input)
@@ -336,7 +336,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 	assert(num_error >= 0)
 	assert(int(num_complete+num_interrupted+num_error) == optNumReader+optNumWriter)
 
-	if num_remain, err := cleanupWritePaths(); err != nil {
+	if num_remain, err := cleanupWritePaths(optKeepWritePaths); err != nil {
 		return -1, -1, -1, -1, err
 	} else {
 		return int(num_complete), int(num_interrupted), int(num_error), num_remain, nil

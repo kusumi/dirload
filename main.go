@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version            [3]int = [3]int{0, 4, 0}
+	version            [3]int = [3]int{0, 4, 1}
 	optNumReader       int
 	optNumWriter       int
 	optNumRepeat       int
@@ -27,9 +27,11 @@ var (
 	optWriteBufferSize int
 	optWriteSize       int
 	optNumWritePaths   int
+	optFsyncWritePaths bool
 	optKeepWritePaths  bool
 	optCleanWritePaths bool
 	optWritePathsBase  string
+	optWritePathsType  string
 	optPathIter        int
 	optFlistFile       string
 	optFlistFileCreate bool
@@ -67,9 +69,11 @@ func main() {
 	opt_write_buffer_size := flag.Int("write_buffer_size", 1<<16, "Write buffer size")
 	opt_write_size := flag.Int("write_size", -1, "Write residual size per file write, use < write_buffer_size random size if 0")
 	opt_num_write_paths := flag.Int("num_write_paths", 1<<10, "Exit writer Goroutines after creating specified files or directories if > 0")
+	opt_fsync_write_paths := flag.Bool("fsync_write_paths", false, "fsync(2) write paths")
 	opt_keep_write_paths := flag.Bool("keep_write_paths", false, "Do not unlink write paths after writer Goroutines exit")
 	opt_clean_write_paths := flag.Bool("clean_write_paths", false, "Unlink existing write paths and exit")
-	opt_write_paths_base := flag.String("write_paths_base", "", "Base name for write paths")
+	opt_write_paths_base := flag.String("write_paths_base", "x", "Base name for write paths")
+	opt_write_paths_type := flag.String("write_paths_type", "dr", "File types for write paths [d|r|s|l]")
 	opt_path_iter := flag.String("path_iter", "walk", "<paths> iteration type [walk|ordered|reverse|random]")
 	opt_flist_file := flag.String("flist_file", "", "Path to flist file")
 	opt_flist_file_create := flag.Bool("flist_file_create", false, "Create flist file and exit")
@@ -115,14 +119,28 @@ func main() {
 	if optNumWritePaths < -1 {
 		optNumWritePaths = -1
 	}
+	optFsyncWritePaths = *opt_fsync_write_paths
 	optKeepWritePaths = *opt_keep_write_paths
 	optCleanWritePaths = *opt_clean_write_paths
 	optWritePathsBase = *opt_write_paths_base
-	if len(optWritePathsBase) == 0 {
-		optWritePathsBase = "x"
-	} else if n, err := strconv.Atoi(optWritePathsBase); err == nil {
+	if optWritePathsBase == "" {
+		fmt.Println("Empty write paths base")
+		os.Exit(1)
+	}
+	if n, err := strconv.Atoi(optWritePathsBase); err == nil {
 		optWritePathsBase = strings.Repeat("x", n)
 		fmt.Println("Using base name", optWritePathsBase, "for write paths")
+	}
+	optWritePathsType = *opt_write_paths_type
+	if optWritePathsType == "" {
+		fmt.Println("Empty write paths type")
+		os.Exit(1)
+	}
+	for _, x := range optWritePathsType {
+		if x != 'd' && x != 'r' && x != 's' && x != 'l' {
+			fmt.Println("Invalid write paths type", string(x))
+			os.Exit(1)
+		}
 	}
 	switch *opt_path_iter {
 	case "walk":
@@ -182,6 +200,7 @@ func main() {
 		dbgf("option \"%s\" -> %s\n", f.Name, f.Value)
 	})
 
+	// only allow directories since now that write is supported
 	var input []string
 	for _, f := range args {
 		absf, err := filepath.Abs(f)
@@ -189,14 +208,19 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		if _, err := pathExists(absf); err != nil {
+		if t, err := getRawFileType(absf); err != nil {
 			fmt.Println(err)
+			os.Exit(1)
+		} else if t != DIR {
+			fmt.Println(absf, "not directory")
 			os.Exit(1)
 		}
 		input = append(input, absf)
 	}
 	dbg("input", input)
-	if optDebug {
+
+	// and the directories should be writable
+	if optDebug && optNumWriter > 0 {
 		for _, f := range input {
 			if writable, err := isDirWritable(f); err != nil {
 				fmt.Println(err)
@@ -207,6 +231,7 @@ func main() {
 		}
 	}
 
+	// create flist and exit
 	if optFlistFileCreate {
 		if optFlistFile == "" {
 			fmt.Println("Empty flist file path")
@@ -224,6 +249,7 @@ func main() {
 		}
 		os.Exit(0)
 	}
+	// clean write paths and exit
 	if optCleanWritePaths {
 		if l, err := collectWritePaths(input); err != nil {
 			fmt.Println(err)
@@ -241,6 +267,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	// ready to dispatch workers
 	rand.Seed(time.Now().UnixNano())
 	_, num_interrupted, num_error, num_remain, err := dispatchWorker(input)
 	if err != nil {

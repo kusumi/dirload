@@ -50,6 +50,7 @@ const (
 	SYMLINK
 	UNSUPPORTED
 	INVALID
+	LINK // hardlink
 )
 
 func getRawFileType(f string) (fileType, error) {
@@ -86,10 +87,10 @@ func getModeType(m fs.FileMode) fileType {
 }
 
 func pathExists(f string) (bool, error) {
-	if _, err := os.Stat(f); err == nil {
-		return true, nil
-	} else {
+	if _, err := os.Lstat(f); err != nil {
 		return false, err
+	} else {
+		return true, nil
 	}
 }
 
