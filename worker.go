@@ -37,20 +37,20 @@ func (this *workerTimer) Error() string {
 	return fmt.Sprint(this.err)
 }
 
-func gidToRid(gid int) int {
+func gidToRid(gid uint) uint {
 	return gid
 }
 
-func gidToWid(gid int) int {
+func gidToWid(gid uint) uint {
 	return gid - optNumReader
 }
 
-func isReader(gid int) bool {
+func isReader(gid uint) bool {
 	return !isWriter(gid)
 }
 
-func isWriter(gid int) bool {
-	return gidToWid(gid) >= 0
+func isWriter(gid uint) bool {
+	return gid >= optNumReader
 }
 
 func setupFlistImpl(input []string) ([][]string, error) {
@@ -123,7 +123,7 @@ func setupFlist(input []string) ([][]string, error) {
 	}
 }
 
-func debugPrintComplete(gid int, repeat int, err error) {
+func debugPrintComplete(gid uint, repeat int, err error) {
 	var t string
 	if isReader(gid) {
 		t = "reader"
@@ -162,7 +162,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 
 	// initialize per goroutine variables
 	initReadBuffer(optNumReader, optReadBufferSize)
-	initWriteBuffer(optNumWriter, optWriteBufferSize)
+	initWriteBuffer(optNumWriter, optWriteBufferSize, optRandomWriteData)
 	initWritePaths(optNumWriter, optWritePathsType)
 	initStat(optNumReader, optNumWriter)
 
@@ -194,7 +194,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 	}()
 
 	// worker goroutines
-	for i := 0; i < optNumReader+optNumWriter; i++ {
+	for i := uint(0); i < optNumReader+optNumWriter; i++ {
 		wg.Add(1)
 		gid := i
 		setTimeBegin(gid)
@@ -202,7 +202,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 			defer wg.Done()
 			defer func() {
 				// XXX possible race vs signal handler goroutine
-				total := int(num_complete + num_interrupted + num_error)
+				total := uint(num_complete + num_interrupted + num_error)
 				if total == optNumReader+optNumWriter {
 					if signaled {
 						dbgf("%d+%d reader goroutines done", total, 1)
@@ -223,7 +223,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 			}
 
 			// set input path for this goroutine
-			input_path := input[gid%len(input)]
+			input_path := input[gid%uint(len(input))]
 			setInputPath(gid, input_path)
 
 			// start loop
@@ -255,7 +255,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 							}
 						})
 				} else {
-					fl := fls[gid%len(fls)]
+					fl := fls[gid%uint(len(fls))]
 					for j := 0; j < len(fl); j++ {
 						select {
 						case <-interrupt_ch:
@@ -334,7 +334,7 @@ func dispatchWorker(input []string) (int, int, int, int, error) {
 	assert(num_complete >= 0)
 	assert(num_interrupted >= 0)
 	assert(num_error >= 0)
-	assert(int(num_complete+num_interrupted+num_error) == optNumReader+optNumWriter)
+	assert(uint(num_complete+num_interrupted+num_error) == optNumReader+optNumWriter)
 
 	if num_remain, err := cleanupWritePaths(optKeepWritePaths); err != nil {
 		return -1, -1, -1, -1, err

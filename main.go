@@ -13,31 +13,34 @@ import (
 )
 
 var (
-	version            [3]int = [3]int{0, 4, 1}
-	optNumReader       int
-	optNumWriter       int
-	optNumRepeat       int
-	optTimeMinute      int
-	optTimeSecond      int
-	optStatOnly        bool
-	optIgnoreDot       bool
-	optLstat           bool
-	optReadBufferSize  int
-	optReadSize        int
-	optWriteBufferSize int
-	optWriteSize       int
-	optNumWritePaths   int
-	optFsyncWritePaths bool
-	optKeepWritePaths  bool
-	optCleanWritePaths bool
-	optWritePathsBase  string
-	optWritePathsType  string
-	optPathIter        int
-	optFlistFile       string
-	optFlistFileCreate bool
-	optForce           bool
-	optVerbose         bool
-	optDebug           bool
+	version               [3]int = [3]int{0, 4, 2}
+	optNumReader          uint
+	optNumWriter          uint
+	optNumRepeat          int
+	optTimeMinute         uint
+	optTimeSecond         uint
+	optStatOnly           bool
+	optIgnoreDot          bool
+	optLstat              bool
+	optReadBufferSize     uint
+	optReadSize           int
+	optWriteBufferSize    uint
+	optWriteSize          int
+	optRandomWriteData    bool
+	optNumWritePaths      int
+	optTruncateWritePaths bool
+	optFsyncWritePaths    bool
+	optDirsyncWritePaths  bool
+	optKeepWritePaths     bool
+	optCleanWritePaths    bool
+	optWritePathsBase     string
+	optWritePathsType     string
+	optPathIter           uint
+	optFlistFile          string
+	optFlistFileCreate    bool
+	optForce              bool
+	optVerbose            bool
+	optDebug              bool
 )
 
 func getVersionString() string {
@@ -68,8 +71,11 @@ func main() {
 	opt_read_size := flag.Int("read_size", -1, "Read residual size per file read, use < read_buffer_size random size if 0")
 	opt_write_buffer_size := flag.Int("write_buffer_size", 1<<16, "Write buffer size")
 	opt_write_size := flag.Int("write_size", -1, "Write residual size per file write, use < write_buffer_size random size if 0")
+	opt_random_write_data := flag.Bool("random_write_data", false, "Use pseudo random write data")
 	opt_num_write_paths := flag.Int("num_write_paths", 1<<10, "Exit writer Goroutines after creating specified files or directories if > 0")
+	opt_truncate_write_paths := flag.Bool("truncate_write_paths", false, "ftruncate(2) write paths for regular files instead of write(2)")
 	opt_fsync_write_paths := flag.Bool("fsync_write_paths", false, "fsync(2) write paths")
+	opt_dirsync_write_paths := flag.Bool("dirsync_write_paths", false, "fsync(2) parent directories of write paths")
 	opt_keep_write_paths := flag.Bool("keep_write_paths", false, "Do not unlink write paths after writer Goroutines exit")
 	opt_clean_write_paths := flag.Bool("clean_write_paths", false, "Unlink existing write paths and exit")
 	opt_write_paths_base := flag.String("write_paths_base", "x", "Base name for write paths")
@@ -85,41 +91,49 @@ func main() {
 
 	flag.Parse()
 	args := flag.Args()
-	optNumReader = *opt_num_reader
-	if optNumReader < 0 {
-		optNumReader = 0
-	}
-	optNumWriter = *opt_num_writer
-	if optNumWriter < 0 {
-		optNumWriter = 0
-	}
+	optNumReader = uint(*opt_num_reader)
+	optNumWriter = uint(*opt_num_writer)
 	optNumRepeat = *opt_num_repeat
-	optTimeMinute = *opt_time_minute
-	if optTimeMinute < 0 {
-		optTimeMinute = 0
+	if optNumRepeat < -1 {
+		optNumRepeat = -1
 	}
-	optTimeSecond = *opt_time_second
-	if optTimeSecond < 0 {
-		optTimeSecond = 0
-	}
+	optTimeMinute = uint(*opt_time_minute)
+	optTimeSecond = uint(*opt_time_second)
 	optStatOnly = *opt_stat_only
 	optIgnoreDot = *opt_ignore_dot
 	optLstat = *opt_lstat
-	optReadBufferSize = *opt_read_buffer_size
+	optReadBufferSize = uint(*opt_read_buffer_size)
+	if optReadBufferSize > maxBufferSize {
+		fmt.Println("Invalid read buffer size", optReadBufferSize)
+		os.Exit(1)
+	}
 	optReadSize = *opt_read_size
 	if optReadSize < -1 {
 		optReadSize = -1
+	} else if optReadSize > int(maxBufferSize) {
+		fmt.Println("Invalid read size", optReadSize)
+		os.Exit(1)
 	}
-	optWriteBufferSize = *opt_write_buffer_size
+	optWriteBufferSize = uint(*opt_write_buffer_size)
+	if optWriteBufferSize > maxBufferSize {
+		fmt.Println("Invalid write buffer size", optWriteBufferSize)
+		os.Exit(1)
+	}
 	optWriteSize = *opt_write_size
 	if optWriteSize < -1 {
 		optWriteSize = -1
+	} else if optWriteSize > int(maxBufferSize) {
+		fmt.Println("Invalid write size", optWriteSize)
+		os.Exit(1)
 	}
+	optRandomWriteData = *opt_random_write_data
 	optNumWritePaths = *opt_num_write_paths
 	if optNumWritePaths < -1 {
 		optNumWritePaths = -1
 	}
+	optTruncateWritePaths = *opt_truncate_write_paths
 	optFsyncWritePaths = *opt_fsync_write_paths
+	optDirsyncWritePaths = *opt_dirsync_write_paths
 	optKeepWritePaths = *opt_keep_write_paths
 	optCleanWritePaths = *opt_clean_write_paths
 	optWritePathsBase = *opt_write_paths_base

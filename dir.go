@@ -14,8 +14,10 @@ import (
 )
 
 var (
+	maxBufferSize     uint
 	readBuffer        [][]byte
 	writeBuffer       [][]byte
+	randomWriteData   []byte
 	writePaths        [][]string
 	writePathsCounter []uint64
 	writePathsTs      string
@@ -24,44 +26,49 @@ var (
 )
 
 func init() {
+	maxBufferSize = 128 * 1024
 	writePathsPrefix = "dirload"
 }
 
-func initReadBuffer(n int, bufsiz int) {
-	assert(n >= 0)
+func initReadBuffer(n uint, bufsiz uint) {
 	assert(bufsiz > 0)
 	readBuffer = make([][]byte, n)
-	assert(len(readBuffer) == n)
+	assert(uint(len(readBuffer)) == n)
 
 	for i := 0; i < len(readBuffer); i++ {
 		readBuffer[i] = make([]byte, bufsiz)
 	}
 }
 
-func initWriteBuffer(n int, bufsiz int) {
-	assert(n >= 0)
+func initWriteBuffer(n uint, bufsiz uint, random bool) {
 	assert(bufsiz > 0)
 	writeBuffer = make([][]byte, n)
-	assert(len(writeBuffer) == n)
+	assert(uint(len(writeBuffer)) == n)
 
 	for i := 0; i < len(writeBuffer); i++ {
 		writeBuffer[i] = make([]byte, bufsiz)
 		if i == 0 {
-			for j := 0; j < bufsiz; j++ {
+			for j := uint(0); j < bufsiz; j++ {
 				writeBuffer[i][j] = 0x41
 			}
 		} else {
 			copy(writeBuffer[i], writeBuffer[0])
 		}
 	}
+
+	if random {
+		randomWriteData = make([]byte, maxBufferSize*2) // doubled
+		for i := 0; i < len(randomWriteData); i++ {
+			randomWriteData[i] = byte(rand.Intn(127-32) + 32)
+		}
+	}
 }
 
-func initWritePaths(n int, write_paths_type string) {
-	assert(n >= 0)
+func initWritePaths(n uint, write_paths_type string) {
 	writePaths = make([][]string, n)
 	writePathsCounter = make([]uint64, n)
-	assert(len(writePaths) == n)
-	assert(len(writePathsCounter) == n)
+	assert(uint(len(writePaths)) == n)
+	assert(uint(len(writePathsCounter)) == n)
 
 	for i := 0; i < len(writePaths); i++ {
 		writePaths[i] = make([]string, 0)
@@ -150,7 +157,7 @@ func assertFilePath(f string) {
 	assert(!strings.HasSuffix(f, "/"))
 }
 
-func readEntry(gid int, f string) error {
+func readEntry(gid uint, f string) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {
@@ -220,7 +227,7 @@ func readEntry(gid int, f string) error {
 	return nil
 }
 
-func readFile(gid int, f string) error {
+func readFile(gid uint, f string) error {
 	fp, err := os.Open(f)
 	if err != nil {
 		return err
@@ -245,13 +252,14 @@ func readFile(gid int, f string) error {
 		}
 
 		siz, err := fp.Read(b)
-		incNumRead(gid) // count only when siz > 0 ?
 		if err == io.EOF {
+			incNumRead(gid)
 			addNumReadBytes(gid, siz)
 			break
 		} else if err != nil {
 			return err
 		}
+		incNumRead(gid)
 		addNumReadBytes(gid, siz)
 
 		// end if positive residual becomes <= 0
@@ -269,7 +277,7 @@ func readFile(gid int, f string) error {
 	return nil
 }
 
-func writeEntry(gid int, f string) error {
+func writeEntry(gid uint, f string) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {
@@ -286,11 +294,6 @@ func writeEntry(gid int, f string) error {
 				return nil
 			}
 		}
-	}
-
-	// beyond this is for file write
-	if optStatOnly {
-		return nil
 	}
 
 	switch t {
@@ -320,43 +323,42 @@ func writeEntry(gid int, f string) error {
 	return nil
 }
 
-func writeFile(gid int, d string, f string) error {
+func writeFile(gid uint, d string, f string) error {
 	if isWriteDone(gid) {
 		return nil
 	}
 
+	// construct a write path
 	wid := gidToWid(gid)
 	newb := fmt.Sprintf("%s_wid%d_%s_%d",
 		getWritePathsBase(), wid, writePathsTs, writePathsCounter[wid])
 	writePathsCounter[wid]++
-
 	newf := filepath.Join(d, newb)
+
+	// create an inode
 	t := writePathsType[rand.Intn(len(writePathsType))]
 	if err := creatInode(f, newf, t); err != nil {
 		return err
-	} else {
-		if exists, err := pathExists(newf); err != nil {
+	}
+	if optFsyncWritePaths {
+		if err := fsyncInode(newf); err != nil {
 			return err
-		} else {
-			assert(exists)
-			if optFsyncWritePaths {
-				if fp, err := os.Open(newf); err != nil {
-					return err
-				} else {
-					defer fp.Close()
-					if err := fp.Sync(); err != nil {
-						return err
-					}
-				}
-			}
 		}
-		writePaths[wid] = append(writePaths[wid], newf)
-		if t != REG {
-			incNumWrite(gid)
-			return nil
+	}
+	if optDirsyncWritePaths {
+		if err := fsyncInode(d); err != nil {
+			return err
 		}
 	}
 
+	// register the write path, and return unless regular file
+	writePaths[wid] = append(writePaths[wid], newf)
+	if t != REG {
+		incNumWrite(gid)
+		return nil
+	}
+
+	// open the write path and start writing
 	fp, err := os.OpenFile(newf, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -366,6 +368,7 @@ func writeFile(gid int, d string, f string) error {
 	b := writeBuffer[wid]
 	resid := optWriteSize // negative resid means no write
 	if resid < 0 {
+		incNumWrite(gid)
 		return nil
 	} else if resid == 0 {
 		resid = rand.Intn(len(b)) + 1
@@ -374,26 +377,37 @@ func writeFile(gid int, d string, f string) error {
 	}
 	assert(resid > 0)
 
-	for {
-		// cut slice size if > residual
-		if len(b) > resid {
-			b = b[:resid]
-		}
-
-		siz, err := fp.Write(b)
-		incNumWrite(gid) // count only when siz > 0 ?
-		if err != nil {
+	if optTruncateWritePaths {
+		if err := fp.Truncate(int64(resid)); err != nil {
 			return err
 		}
-		addNumWriteBytes(gid, siz)
-
-		// end if residual becomes <= 0
-		resid -= siz
-		if resid <= 0 {
-			if optDebug {
-				assert(resid == 0)
+		incNumWrite(gid)
+	} else {
+		for {
+			// cut slice size if > residual
+			if len(b) > resid {
+				b = b[:resid]
 			}
-			break
+			if optRandomWriteData {
+				i := rand.Intn(len(randomWriteData) / 2)
+				copy(b, randomWriteData[i:i+len(b)])
+			}
+
+			siz, err := fp.Write(b)
+			if err != nil {
+				return err
+			}
+			incNumWrite(gid)
+			addNumWriteBytes(gid, siz)
+
+			// end if residual becomes <= 0
+			resid -= siz
+			if resid <= 0 {
+				if optDebug {
+					assert(resid == 0)
+				}
+				break
+			}
 		}
 	}
 
@@ -436,7 +450,19 @@ func creatInode(oldf string, newf string, t fileType) error {
 	return nil
 }
 
-func isWriteDone(gid int) bool {
+func fsyncInode(f string) error {
+	if fp, err := os.Open(f); err != nil {
+		return err
+	} else {
+		defer fp.Close()
+		if err := fp.Sync(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isWriteDone(gid uint) bool {
 	if !isWriter(gid) {
 		return false
 	} else if optNumWritePaths <= 0 {

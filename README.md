@@ -1,4 +1,4 @@
-dirload ([v0.4.1](https://github.com/kusumi/dirload/releases/tag/v0.4.1))
+dirload ([v0.4.2](https://github.com/kusumi/dirload/releases/tag/v0.4.2))
 ========
 
 ## About
@@ -29,6 +29,8 @@ or
             Unlink existing write paths and exit
       -debug
             Create debug log file under home directory
+      -dirsync_write_paths
+            fsync(2) parent directories of write paths
       -flist_file string
             Path to flist file
       -flist_file_create
@@ -54,6 +56,8 @@ or
             Number of writer Goroutines
       -path_iter string
             <paths> iteration type [walk|ordered|reverse|random] (default "walk")
+      -random_write_data
+            Use pseudo random write data
       -read_buffer_size int
             Read buffer size (default 65536)
       -read_size int
@@ -64,6 +68,8 @@ or
             Exit Goroutines after sum of this and -time_second option if > 0
       -time_second int
             Exit Goroutines after sum of this and -time_minute option if > 0
+      -truncate_write_paths
+            ftruncate(2) write paths for regular files instead of write(2)
       -v    Print version and exit
       -verbose
             Enable verbose print

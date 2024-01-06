@@ -5,19 +5,19 @@ import (
 )
 
 func Test_initStat(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	if n := len(numRepeat); n != siz {
+	if n := uint(len(numRepeat)); n != siz {
 		t.Error(n)
 	}
-	if n := len(numStat); n != siz {
+	if n := uint(len(numStat)); n != siz {
 		t.Error(n)
 	}
-	if n := len(numRead); n != siz {
+	if n := uint(len(numRead)); n != siz {
 		t.Error(n)
 	}
-	if n := len(numReadBytes); n != siz {
+	if n := uint(len(numReadBytes)); n != siz {
 		t.Error(n)
 	}
 
@@ -39,10 +39,10 @@ func Test_initStat(t *testing.T) {
 }
 
 func Test_setTime(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	for i := 0; i < len(timeBegin); i++ {
+	for i := uint(0); i < uint(len(timeBegin)); i++ {
 		setTimeBegin(i)
 		setTimeEnd(i)
 		if timeEnd[i].Sub(timeBegin[i]).Seconds() <= 0 {
@@ -55,12 +55,12 @@ func Test_setTime(t *testing.T) {
 }
 
 func Test_incNumRepeat(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	gid := 5
+	gid := uint(5)
 	incNumRepeat(gid)
-	for i := 0; i < len(numRepeat); i++ {
+	for i := uint(0); i < uint(len(numRepeat)); i++ {
 		if i == gid {
 			if numRepeat[i] != 1 {
 				t.Error(i, numRepeat[i])
@@ -72,7 +72,7 @@ func Test_incNumRepeat(t *testing.T) {
 		}
 	}
 	incNumRepeat(gid)
-	for i := 0; i < len(numRepeat); i++ {
+	for i := uint(0); i < uint(len(numRepeat)); i++ {
 		if i == gid {
 			if numRepeat[i] != 2 {
 				t.Error(i, numRepeat[i])
@@ -86,12 +86,12 @@ func Test_incNumRepeat(t *testing.T) {
 }
 
 func Test_incNumStat(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	gid := 5
+	gid := uint(5)
 	incNumStat(gid)
-	for i := 0; i < len(numStat); i++ {
+	for i := uint(0); i < uint(len(numStat)); i++ {
 		if i == gid {
 			if numStat[i] != 1 {
 				t.Error(i, numStat[i])
@@ -103,7 +103,7 @@ func Test_incNumStat(t *testing.T) {
 		}
 	}
 	incNumStat(gid)
-	for i := 0; i < len(numStat); i++ {
+	for i := uint(0); i < uint(len(numStat)); i++ {
 		if i == gid {
 			if numStat[i] != 2 {
 				t.Error(i, numStat[i])
@@ -117,12 +117,12 @@ func Test_incNumStat(t *testing.T) {
 }
 
 func Test_incNumRead(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	gid := 5
+	gid := uint(5)
 	incNumRead(gid)
-	for i := 0; i < len(numRead); i++ {
+	for i := uint(0); i < uint(len(numRead)); i++ {
 		if i == gid {
 			if numRead[i] != 1 {
 				t.Error(i, numRead[i])
@@ -134,7 +134,7 @@ func Test_incNumRead(t *testing.T) {
 		}
 	}
 	incNumRead(gid)
-	for i := 0; i < len(numRead); i++ {
+	for i := uint(0); i < uint(len(numRead)); i++ {
 		if i == gid {
 			if numRead[i] != 2 {
 				t.Error(i, numRead[i])
@@ -148,13 +148,13 @@ func Test_incNumRead(t *testing.T) {
 }
 
 func Test_addNumReadBytes(t *testing.T) {
-	siz := 10
+	siz := uint(10)
 	initStat(siz, 0)
 
-	gid := 5
+	gid := uint(5)
 	rdsiz := 1234
 	addNumReadBytes(gid, rdsiz)
-	for i := 0; i < len(numReadBytes); i++ {
+	for i := uint(0); i < uint(len(numReadBytes)); i++ {
 		if i == gid {
 			if numReadBytes[i] != uint64(rdsiz) {
 				t.Error(i, numReadBytes[i])
@@ -166,7 +166,7 @@ func Test_addNumReadBytes(t *testing.T) {
 		}
 	}
 	addNumReadBytes(gid, rdsiz)
-	for i := 0; i < len(numReadBytes); i++ {
+	for i := uint(0); i < uint(len(numReadBytes)); i++ {
 		if i == gid {
 			if numReadBytes[i] != uint64(rdsiz*2) {
 				t.Error(i, numReadBytes[i])
@@ -178,7 +178,7 @@ func Test_addNumReadBytes(t *testing.T) {
 		}
 	}
 	addNumReadBytes(gid, 0)
-	for i := 0; i < len(numReadBytes); i++ {
+	for i := uint(0); i < uint(len(numReadBytes)); i++ {
 		if i == gid {
 			if numReadBytes[i] != uint64(rdsiz*2) {
 				t.Error(i, numReadBytes[i])

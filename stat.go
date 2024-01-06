@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	numReader     int
-	numWriter     int
+	numReader     uint
+	numWriter     uint
 	inputPath     []string
 	timeBegin     []time.Time
 	timeEnd       []time.Time
@@ -21,9 +21,8 @@ var (
 	numWriteBytes []uint64
 )
 
-func initStat(nreader int, nwriter int) {
+func initStat(nreader uint, nwriter uint) {
 	n := nreader + nwriter
-	assert(n >= 0)
 	numReader = nreader
 	numWriter = nwriter
 	inputPath = make([]string, n)
@@ -37,40 +36,40 @@ func initStat(nreader int, nwriter int) {
 	numWriteBytes = make([]uint64, n)
 }
 
-func setInputPath(gid int, f string) {
+func setInputPath(gid uint, f string) {
 	inputPath[gid] = f
 }
 
-func setTimeBegin(gid int) {
+func setTimeBegin(gid uint) {
 	timeBegin[gid] = time.Now()
 }
 
-func setTimeEnd(gid int) {
+func setTimeEnd(gid uint) {
 	timeEnd[gid] = time.Now()
 }
 
-func incNumRepeat(gid int) {
+func incNumRepeat(gid uint) {
 	numRepeat[gid]++
 }
 
-func incNumStat(gid int) {
+func incNumStat(gid uint) {
 	numStat[gid]++
 }
 
-func incNumRead(gid int) {
+func incNumRead(gid uint) {
 	numRead[gid]++
 }
 
-func addNumReadBytes(gid int, siz int) {
+func addNumReadBytes(gid uint, siz int) {
 	assert(siz >= 0)
 	numReadBytes[gid] += uint64(siz)
 }
 
-func incNumWrite(gid int) {
+func incNumWrite(gid uint) {
 	numWrite[gid]++
 }
 
-func addNumWriteBytes(gid int, siz int) {
+func addNumWriteBytes(gid uint, siz int) {
 	assert(siz >= 0)
 	numWriteBytes[gid] += uint64(siz)
 }
@@ -173,7 +172,7 @@ func printStat() {
 	width_index := 1
 	if n := nlines; n > 0 {
 		n -= 1 // gid starts from 0
-		width_index = len(strconv.Itoa(n))
+		width_index = len(strconv.Itoa(int(n)))
 	}
 
 	tfmt := strings.Repeat(" ", 1+width_index+1)
@@ -185,12 +184,12 @@ func printStat() {
 
 	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
 		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs)
-	for i := 0; i < nlines; i++ {
+	for i := uint(0); i < nlines; i++ {
 		s := "reader"
 		if i >= numReader {
 			s = "writer"
 		}
-		fmt.Printf(sfmt, strconv.Itoa(i), s, numRepeat[i], numStat[i],
+		fmt.Printf(sfmt, strconv.Itoa(int(i)), s, numRepeat[i], numStat[i],
 			numRead[i], numReadBytes[i], numWrite[i], numWriteBytes[i], numSec[i], numMibs[i], inputPath[i])
 	}
 }
