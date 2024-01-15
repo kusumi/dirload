@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 2}
+	version               [3]int = [3]int{0, 4, 3}
 	optNumReader          uint
 	optNumWriter          uint
 	optNumRepeat          int
@@ -94,7 +94,7 @@ func main() {
 	optNumReader = uint(*opt_num_reader)
 	optNumWriter = uint(*opt_num_writer)
 	optNumRepeat = *opt_num_repeat
-	if optNumRepeat < -1 {
+	if optNumRepeat == 0 || optNumRepeat < -1 {
 		optNumRepeat = -1
 	}
 	optTimeMinute = uint(*opt_time_minute)
@@ -170,6 +170,11 @@ func main() {
 		os.Exit(1)
 	}
 	optFlistFile = *opt_flist_file
+	// using flist file means not walking input directories
+	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
+		optPathIter = PATH_ITER_ORDERED
+		fmt.Println("Using flist, force -path_iter=ordered")
+	}
 	optFlistFileCreate = *opt_flist_file_create
 	optForce = *opt_force
 	optVerbose = *opt_verbose
@@ -283,7 +288,7 @@ func main() {
 
 	// ready to dispatch workers
 	rand.Seed(time.Now().UnixNano())
-	_, num_interrupted, num_error, num_remain, err := dispatchWorker(input)
+	_, num_interrupted, num_error, num_remain, tsv, err := dispatchWorker(input)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -311,5 +316,5 @@ func main() {
 		fmt.Printf("%d write path%s remaining\n", num_remain, s)
 	}
 
-	printStat()
+	printStat(tsv)
 }

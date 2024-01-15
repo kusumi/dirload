@@ -7,136 +7,122 @@ import (
 	"time"
 )
 
-var (
-	numReader     uint
-	numWriter     uint
-	inputPath     []string
-	timeBegin     []time.Time
-	timeEnd       []time.Time
-	numRepeat     []uint64
-	numStat       []uint64
-	numRead       []uint64
-	numReadBytes  []uint64
-	numWrite      []uint64
-	numWriteBytes []uint64
-)
-
-func initStat(nreader uint, nwriter uint) {
-	n := nreader + nwriter
-	numReader = nreader
-	numWriter = nwriter
-	inputPath = make([]string, n)
-	timeBegin = make([]time.Time, n)
-	timeEnd = make([]time.Time, n)
-	numRepeat = make([]uint64, n)
-	numStat = make([]uint64, n)
-	numRead = make([]uint64, n)
-	numReadBytes = make([]uint64, n)
-	numWrite = make([]uint64, n)
-	numWriteBytes = make([]uint64, n)
+type threadStat struct {
+	isReader      bool
+	inputPath     string
+	timeBegin     time.Time
+	timeEnd       time.Time
+	numRepeat     uint64
+	numStat       uint64
+	numRead       uint64
+	numReadBytes  uint64
+	numWrite      uint64
+	numWriteBytes uint64
 }
 
-func setInputPath(gid uint, f string) {
-	inputPath[gid] = f
+func newReadStat() threadStat {
+	return threadStat{
+		isReader: true,
+	}
 }
 
-func setTimeBegin(gid uint) {
-	timeBegin[gid] = time.Now()
+func newWriteStat() threadStat {
+	return threadStat{
+		isReader: false,
+	}
 }
 
-func setTimeEnd(gid uint) {
-	timeEnd[gid] = time.Now()
+func (this *threadStat) setInputPath(f string) {
+	this.inputPath = f
 }
 
-func incNumRepeat(gid uint) {
-	numRepeat[gid]++
+func (this *threadStat) setTimeBegin() {
+	this.timeBegin = time.Now()
 }
 
-func incNumStat(gid uint) {
-	numStat[gid]++
+func (this *threadStat) setTimeEnd() {
+	this.timeEnd = time.Now()
 }
 
-func incNumRead(gid uint) {
-	numRead[gid]++
+func (this *threadStat) incNumRepeat() {
+	this.numRepeat++
 }
 
-func addNumReadBytes(gid uint, siz int) {
+func (this *threadStat) incNumStat() {
+	this.numStat++
+}
+
+func (this *threadStat) incNumRead() {
+	this.numRead++
+}
+
+func (this *threadStat) addNumReadBytes(siz int) {
 	assert(siz >= 0)
-	numReadBytes[gid] += uint64(siz)
+	this.numReadBytes += uint64(siz)
 }
 
-func incNumWrite(gid uint) {
-	numWrite[gid]++
+func (this *threadStat) incNumWrite() {
+	this.numWrite++
 }
 
-func addNumWriteBytes(gid uint, siz int) {
+func (this *threadStat) addNumWriteBytes(siz int) {
 	assert(siz >= 0)
-	numWriteBytes[gid] += uint64(siz)
+	this.numWriteBytes += uint64(siz)
 }
 
-func printStat() {
-	assert(len(inputPath) == len(timeBegin))
-	assert(len(timeBegin) == len(timeEnd))
-	assert(len(timeEnd) == len(numRepeat))
-	assert(len(numRepeat) == len(numStat))
-	assert(len(numStat) == len(numRead))
-	assert(len(numRead) == len(numReadBytes))
-	assert(len(numReadBytes) == len(numWrite))
-	assert(len(numWrite) == len(numWriteBytes))
-	assert(len(numWriteBytes) == len(inputPath))
-
+func printStat(tsv []threadStat) {
 	// repeat
 	width_repeat := len("repeat")
-	for i := 0; i < len(numRepeat); i++ {
-		if s := strconv.Itoa(int(numRepeat[i])); len(s) > width_repeat {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numRepeat)); len(s) > width_repeat {
 			width_repeat = len(s)
 		}
 	}
 
 	// stat
 	width_stat := len("stat")
-	for i := 0; i < len(numStat); i++ {
-		if s := strconv.Itoa(int(numStat[i])); len(s) > width_stat {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numStat)); len(s) > width_stat {
 			width_stat = len(s)
 		}
 	}
 
 	// read
 	width_read := len("read")
-	for i := 0; i < len(numRead); i++ {
-		if s := strconv.Itoa(int(numRead[i])); len(s) > width_read {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numRead)); len(s) > width_read {
 			width_read = len(s)
 		}
 	}
 
 	// read[B]
 	width_read_bytes := len("read[B]")
-	for i := 0; i < len(numReadBytes); i++ {
-		if s := strconv.Itoa(int(numReadBytes[i])); len(s) > width_read_bytes {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numReadBytes)); len(s) > width_read_bytes {
 			width_read_bytes = len(s)
 		}
 	}
 
 	// write
 	width_write := len("write")
-	for i := 0; i < len(numWrite); i++ {
-		if s := strconv.Itoa(int(numWrite[i])); len(s) > width_write {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numWrite)); len(s) > width_write {
 			width_write = len(s)
 		}
 	}
 
 	// write[B]
 	width_write_bytes := len("write[B]")
-	for i := 0; i < len(numWriteBytes); i++ {
-		if s := strconv.Itoa(int(numWriteBytes[i])); len(s) > width_write_bytes {
+	for i := 0; i < len(tsv); i++ {
+		if s := strconv.Itoa(int(tsv[i].numWriteBytes)); len(s) > width_write_bytes {
 			width_write_bytes = len(s)
 		}
 	}
 
 	// sec
-	numSec := make([]float64, len(timeBegin))
-	for i := 0; i < len(numSec); i++ {
-		numSec[i] = timeEnd[i].Sub(timeBegin[i]).Seconds()
+	numSec := make([]float64, len(tsv))
+	for i := 0; i < len(tsv); i++ {
+		numSec[i] = tsv[i].timeEnd.Sub(tsv[i].timeBegin).Seconds()
 	}
 	width_sec := len("sec")
 	for i := 0; i < len(numSec); i++ {
@@ -146,9 +132,9 @@ func printStat() {
 	}
 
 	// MiB/sec
-	numMibs := make([]float64, len(numReadBytes))
-	for i := 0; i < len(numMibs); i++ {
-		mib := float64(numReadBytes[i]+numWriteBytes[i]) / (1 << 20)
+	numMibs := make([]float64, len(tsv))
+	for i := 0; i < len(tsv); i++ {
+		mib := float64(tsv[i].numReadBytes+tsv[i].numWriteBytes) / (1 << 20)
 		numMibs[i] = mib / numSec[i]
 	}
 	width_mibs := len("MiB/sec")
@@ -160,15 +146,15 @@ func printStat() {
 
 	// path
 	width_path := len("path")
-	for i := 0; i < len(inputPath); i++ {
-		assert(inputPath[i] != "")
-		if len(inputPath[i]) > width_path {
-			width_path = len(inputPath[i])
+	for i := 0; i < len(tsv); i++ {
+		assert(tsv[i].inputPath != "")
+		if len(tsv[i].inputPath) > width_path {
+			width_path = len(tsv[i].inputPath)
 		}
 	}
 
 	// index
-	nlines := numReader + numWriter
+	nlines := len(tsv)
 	width_index := 1
 	if n := nlines; n > 0 {
 		n -= 1 // gid starts from 0
@@ -180,16 +166,17 @@ func printStat() {
 		width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs, width_path)
 	s := fmt.Sprintf(tfmt, "type", "repeat", "stat", "read", "read[B]", "write", "write[B]", "sec", "MiB/sec", "path")
 	fmt.Print(s)
-	fmt.Println(strings.Repeat("-", len(s)))
+	fmt.Println(strings.Repeat("-", len(s)-1)) // exclude 1 from \n
 
 	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
 		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs)
-	for i := uint(0); i < nlines; i++ {
+	for i := 0; i < nlines; i++ {
 		s := "reader"
-		if i >= numReader {
+		if !tsv[i].isReader {
 			s = "writer"
 		}
-		fmt.Printf(sfmt, strconv.Itoa(int(i)), s, numRepeat[i], numStat[i],
-			numRead[i], numReadBytes[i], numWrite[i], numWriteBytes[i], numSec[i], numMibs[i], inputPath[i])
+		fmt.Printf(sfmt, strconv.Itoa(int(i)), s, tsv[i].numRepeat, tsv[i].numStat,
+			tsv[i].numRead, tsv[i].numReadBytes, tsv[i].numWrite, tsv[i].numWriteBytes,
+			numSec[i], numMibs[i], tsv[i].inputPath)
 	}
 }

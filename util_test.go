@@ -166,7 +166,7 @@ func Test_removeDupString(t *testing.T) {
 			for j := range x {
 				if i != j {
 					if x[i] == x[j] {
-						t.Error(i, j, x)
+						t.Error(l, i, j, x)
 					}
 				}
 			}
@@ -175,8 +175,8 @@ func Test_removeDupString(t *testing.T) {
 			t.Error(l, x)
 		}
 		for i := range x {
-			if l[i] != x[i] {
-				t.Error(i, l, x)
+			if x[i] != l[i] {
+				t.Error(i, x, l)
 			}
 		}
 	}
@@ -197,7 +197,7 @@ func Test_removeDupString(t *testing.T) {
 			for j := range x {
 				if i != j {
 					if x[i] == x[j] {
-						t.Error(i, j, x)
+						t.Error(l, i, j, x)
 					}
 				}
 			}

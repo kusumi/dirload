@@ -13,71 +13,51 @@ import (
 	"time"
 )
 
-var (
-	maxBufferSize     uint
-	readBuffer        [][]byte
-	writeBuffer       [][]byte
-	randomWriteData   []byte
-	writePaths        [][]string
-	writePathsCounter []uint64
-	writePathsTs      string
-	writePathsPrefix  string
-	writePathsType    []fileType
+const (
+	maxBufferSize    = 128 * 1024
+	writePathsPrefix = "dirload"
 )
 
-func init() {
-	maxBufferSize = 128 * 1024
-	writePathsPrefix = "dirload"
+type threadDir struct {
+	readBuffer        []byte
+	writeBuffer       []byte
+	writePaths        []string
+	writePathsCounter uint64
 }
 
-func initReadBuffer(n uint, bufsiz uint) {
-	assert(bufsiz > 0)
-	readBuffer = make([][]byte, n)
-	assert(uint(len(readBuffer)) == n)
-
-	for i := 0; i < len(readBuffer); i++ {
-		readBuffer[i] = make([]byte, bufsiz)
+func newReadDir(bufsiz uint) threadDir {
+	return threadDir{
+		readBuffer: make([]byte, bufsiz),
 	}
 }
 
-func initWriteBuffer(n uint, bufsiz uint, random bool) {
-	assert(bufsiz > 0)
-	writeBuffer = make([][]byte, n)
-	assert(uint(len(writeBuffer)) == n)
-
-	for i := 0; i < len(writeBuffer); i++ {
-		writeBuffer[i] = make([]byte, bufsiz)
-		if i == 0 {
-			for j := uint(0); j < bufsiz; j++ {
-				writeBuffer[i][j] = 0x41
-			}
-		} else {
-			copy(writeBuffer[i], writeBuffer[0])
-		}
+func newWriteDir(bufsiz uint) threadDir {
+	b := make([]byte, bufsiz)
+	for i := 0; i < len(b); i++ {
+		b[i] = 0x41
 	}
+	return threadDir{
+		writeBuffer: b,
+	}
+}
 
+var (
+	randomWriteData []byte
+	writePathsTs    string
+	writePathsType  []fileType
+)
+
+func initDir(random bool, write_paths_type string) {
 	if random {
+		assert(maxBufferSize > 0)
 		randomWriteData = make([]byte, maxBufferSize*2) // doubled
 		for i := 0; i < len(randomWriteData); i++ {
 			randomWriteData[i] = byte(rand.Intn(127-32) + 32)
 		}
 	}
-}
-
-func initWritePaths(n uint, write_paths_type string) {
-	writePaths = make([][]string, n)
-	writePathsCounter = make([]uint64, n)
-	assert(uint(len(writePaths)) == n)
-	assert(uint(len(writePathsCounter)) == n)
-
-	for i := 0; i < len(writePaths); i++ {
-		writePaths[i] = make([]string, 0)
-		writePathsCounter[i] = 0
-	}
-
 	writePathsTs = time.Now().Format("20060102150405")
-	assert(len(writePathsPrefix) != 0)
 
+	assert(len(write_paths_type) != 0)
 	writePathsType = make([]fileType, len(write_paths_type))
 	for i, x := range write_paths_type {
 		var t fileType
@@ -97,10 +77,10 @@ func initWritePaths(n uint, write_paths_type string) {
 	}
 }
 
-func cleanupWritePaths(keep_write_paths bool) (int, error) {
+func cleanupWritePaths(tdv []*threadDir, keep_write_paths bool) (int, error) {
 	var l []string
-	for i := 0; i < len(writePaths); i++ {
-		l = append(l, writePaths[i]...)
+	for i := 0; i < len(tdv); i++ {
+		l = append(l, tdv[i].writePaths...)
 	}
 
 	num_remain := 0
@@ -157,14 +137,14 @@ func assertFilePath(f string) {
 	assert(!strings.HasSuffix(f, "/"))
 }
 
-func readEntry(gid uint, f string) error {
+func readEntry(f string, thr *gThread) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {
 		return err
 	}
 	// stats by dirwalk itself are not counted
-	incNumStat(gid)
+	thr.stat.incNumStat()
 
 	// ignore . entries if specified
 	if optIgnoreDot {
@@ -189,7 +169,7 @@ func readEntry(gid uint, f string) error {
 		if err != nil {
 			return err
 		}
-		addNumReadBytes(gid, len(f))
+		thr.stat.addNumReadBytes(len(f))
 		if !filepath.IsAbs(f) {
 			f = filepath.Join(filepath.Dir(l), f)
 			assert(filepath.IsAbs(f))
@@ -198,8 +178,8 @@ func readEntry(gid uint, f string) error {
 		if err != nil {
 			return err
 		}
-		incNumStat(gid)      // count twice for symlink
-		assert(t != SYMLINK) // symlink chains resolved
+		thr.stat.incNumStat() // count twice for symlink
+		assert(t != SYMLINK)  // symlink chains resolved
 		if optLstat {
 			return nil
 		}
@@ -209,7 +189,7 @@ func readEntry(gid uint, f string) error {
 	case DIR:
 		return nil
 	case REG:
-		if err := readFile(gid, f); err != nil {
+		if err := readFile(f, thr); err != nil {
 			return err
 		}
 		return nil
@@ -227,14 +207,14 @@ func readEntry(gid uint, f string) error {
 	return nil
 }
 
-func readFile(gid uint, f string) error {
+func readFile(f string, thr *gThread) error {
 	fp, err := os.Open(f)
 	if err != nil {
 		return err
 	}
 	defer fp.Close()
 
-	b := readBuffer[gidToRid(gid)]
+	b := thr.dir.readBuffer
 	resid := optReadSize // negative resid means read until EOF
 	if resid == 0 {
 		resid = rand.Intn(len(b)) + 1
@@ -253,14 +233,14 @@ func readFile(gid uint, f string) error {
 
 		siz, err := fp.Read(b)
 		if err == io.EOF {
-			incNumRead(gid)
-			addNumReadBytes(gid, siz)
+			thr.stat.incNumRead()
+			thr.stat.addNumReadBytes(siz)
 			break
 		} else if err != nil {
 			return err
 		}
-		incNumRead(gid)
-		addNumReadBytes(gid, siz)
+		thr.stat.incNumRead()
+		thr.stat.addNumReadBytes(siz)
 
 		// end if positive residual becomes <= 0
 		if resid > 0 {
@@ -277,14 +257,14 @@ func readFile(gid uint, f string) error {
 	return nil
 }
 
-func writeEntry(gid uint, f string) error {
+func writeEntry(f string, thr *gThread) error {
 	assertFilePath(f)
 	t, err := getRawFileType(f)
 	if err != nil {
 		return err
 	}
 	// stats by dirwalk itself are not counted
-	incNumStat(gid)
+	thr.stat.incNumStat()
 
 	// ignore . entries if specified
 	if optIgnoreDot {
@@ -298,12 +278,12 @@ func writeEntry(gid uint, f string) error {
 
 	switch t {
 	case DIR:
-		if err := writeFile(gid, f, f); err != nil {
+		if err := writeFile(f, f, thr); err != nil {
 			return err
 		}
 		return nil
 	case REG:
-		if err := writeFile(gid, filepath.Dir(f), f); err != nil {
+		if err := writeFile(filepath.Dir(f), f, thr); err != nil {
 			return err
 		}
 		return nil
@@ -323,16 +303,15 @@ func writeEntry(gid uint, f string) error {
 	return nil
 }
 
-func writeFile(gid uint, d string, f string) error {
-	if isWriteDone(gid) {
+func writeFile(d string, f string, thr *gThread) error {
+	if isWriteDone(thr) {
 		return nil
 	}
 
 	// construct a write path
-	wid := gidToWid(gid)
-	newb := fmt.Sprintf("%s_wid%d_%s_%d",
-		getWritePathsBase(), wid, writePathsTs, writePathsCounter[wid])
-	writePathsCounter[wid]++
+	newb := fmt.Sprintf("%s_gid%d_%s_%d",
+		getWritePathsBase(), thr.gid, writePathsTs, thr.dir.writePathsCounter)
+	thr.dir.writePathsCounter++
 	newf := filepath.Join(d, newb)
 
 	// create an inode
@@ -352,9 +331,9 @@ func writeFile(gid uint, d string, f string) error {
 	}
 
 	// register the write path, and return unless regular file
-	writePaths[wid] = append(writePaths[wid], newf)
+	thr.dir.writePaths = append(thr.dir.writePaths, newf)
 	if t != REG {
-		incNumWrite(gid)
+		thr.stat.incNumWrite()
 		return nil
 	}
 
@@ -365,10 +344,10 @@ func writeFile(gid uint, d string, f string) error {
 	}
 	defer fp.Close()
 
-	b := writeBuffer[wid]
+	b := thr.dir.writeBuffer
 	resid := optWriteSize // negative resid means no write
 	if resid < 0 {
-		incNumWrite(gid)
+		thr.stat.incNumWrite()
 		return nil
 	} else if resid == 0 {
 		resid = rand.Intn(len(b)) + 1
@@ -381,7 +360,7 @@ func writeFile(gid uint, d string, f string) error {
 		if err := fp.Truncate(int64(resid)); err != nil {
 			return err
 		}
-		incNumWrite(gid)
+		thr.stat.incNumWrite()
 	} else {
 		for {
 			// cut slice size if > residual
@@ -397,8 +376,8 @@ func writeFile(gid uint, d string, f string) error {
 			if err != nil {
 				return err
 			}
-			incNumWrite(gid)
-			addNumWriteBytes(gid, siz)
+			thr.stat.incNumWrite()
+			thr.stat.addNumWriteBytes(siz)
 
 			// end if residual becomes <= 0
 			resid -= siz
@@ -462,13 +441,11 @@ func fsyncInode(f string) error {
 	return nil
 }
 
-func isWriteDone(gid uint) bool {
-	if !isWriter(gid) {
-		return false
-	} else if optNumWritePaths <= 0 {
+func isWriteDone(thr *gThread) bool {
+	if !isWriter(thr) || optNumWritePaths <= 0 {
 		return false
 	} else {
-		return len(writePaths[gidToWid(gid)]) >= optNumWritePaths
+		return len(thr.dir.writePaths) >= optNumWritePaths
 	}
 }
 
