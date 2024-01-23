@@ -45,6 +45,14 @@ type gThread struct {
 	num_error       uint
 }
 
+func (this *gThread) isReader() bool {
+	return this.gid < optNumReader
+}
+
+func (this *gThread) isWriter() bool {
+	return !this.isReader()
+}
+
 func newRead(gid uint, bufsiz uint) gThread {
 	return gThread{
 		gid:  gid,
@@ -59,14 +67,6 @@ func newWrite(gid uint, bufsiz uint) gThread {
 		dir:  newWriteDir(bufsiz),
 		stat: newWriteStat(),
 	}
-}
-
-func isReader(thr *gThread) bool {
-	return thr.gid < optNumReader
-}
-
-func isWriter(thr *gThread) bool {
-	return !isReader(thr)
 }
 
 func setupFlistImpl(input []string) ([][]string, error) {
@@ -135,7 +135,7 @@ func setupFlist(input []string) ([][]string, error) {
 
 func debugPrintComplete(thr *gThread, repeat int, err error) {
 	var t string
-	if isReader(thr) {
+	if thr.isReader() {
 		t = "reader"
 	} else {
 		t = "writer"
@@ -185,6 +185,11 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 	fls, err := setupFlist(input)
 	if err != nil {
 		return -1, -1, -1, -1, nil, err
+	}
+	if optPathIter == PATH_ITER_WALK {
+		assert(len(fls) == 0)
+	} else {
+		assert(len(fls) != 0)
 	}
 
 	// signal handler goroutine
@@ -269,7 +274,7 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 								if err != nil {
 									return err
 								}
-								if isReader(thr) {
+								if thr.isReader() {
 									return readEntry(f, thr)
 								} else {
 									return writeEntry(f, thr)
@@ -300,7 +305,7 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 							}
 							f := fl[idx]
 							assert(strings.HasPrefix(f, input_path))
-							if isReader(thr) {
+							if thr.isReader() {
 								err = readEntry(f, thr)
 							} else {
 								err = writeEntry(f, thr)
@@ -332,18 +337,15 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 				if optNumRepeat > 0 && repeat >= optNumRepeat {
 					break // usually only readers break from here
 				}
-				if isWriter(thr) && isWriteDone(thr) {
+				if thr.isWriter() && isWriteDone(thr) {
 					break
 				}
 			}
 
-			if isReader(thr) {
+			if thr.isReader() {
 				assert(optNumRepeat > 0)
 				assert(repeat >= optNumRepeat)
-			} else {
-				assert(isWriteDone(thr))
 			}
-
 			debugPrintComplete(thr, repeat, nil)
 			thr.num_complete++
 		}()

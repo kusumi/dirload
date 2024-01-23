@@ -1,4 +1,4 @@
-dirload ([v0.4.3](https://github.com/kusumi/dirload/releases/tag/v0.4.3))
+dirload ([v0.4.4](https://github.com/kusumi/dirload/releases/tag/v0.4.4))
 ========
 
 ## About
@@ -16,10 +16,6 @@ go 1.18 or above
 ## Build
 
     $ make
-
-or
-
-    $ gmake
 
 ## Usage
 
@@ -55,7 +51,7 @@ or
       -num_writer int
             Number of writer Goroutines
       -path_iter string
-            <paths> iteration type [walk|ordered|reverse|random] (default "walk")
+            <paths> iteration type [walk|ordered|reverse|random] (default "ordered")
       -random_write_data
             Use pseudo random write data
       -read_buffer_size int
@@ -81,7 +77,3 @@ or
             File types for write paths [d|r|s|l] (default "dr")
       -write_size int
             Write residual size per file write, use < write_buffer_size random size if 0 (default -1)
-
-## Resource
-
-[https://github.com/kusumi/dirload/](https://github.com/kusumi/dirload/)

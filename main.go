@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 3}
+	version               [3]int = [3]int{0, 4, 4}
 	optNumReader          uint
 	optNumWriter          uint
 	optNumRepeat          int
@@ -80,7 +80,7 @@ func main() {
 	opt_clean_write_paths := flag.Bool("clean_write_paths", false, "Unlink existing write paths and exit")
 	opt_write_paths_base := flag.String("write_paths_base", "x", "Base name for write paths")
 	opt_write_paths_type := flag.String("write_paths_type", "dr", "File types for write paths [d|r|s|l]")
-	opt_path_iter := flag.String("path_iter", "walk", "<paths> iteration type [walk|ordered|reverse|random]")
+	opt_path_iter := flag.String("path_iter", "ordered", "<paths> iteration type [walk|ordered|reverse|random]")
 	opt_flist_file := flag.String("flist_file", "", "Path to flist file")
 	opt_flist_file_create := flag.Bool("flist_file_create", false, "Create flist file and exit")
 	opt_force := flag.Bool("force", false, "Enable force mode")
@@ -227,12 +227,26 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		assert(!strings.HasSuffix(absf, "/"))
 		if t, err := getRawFileType(absf); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else if t != DIR {
 			fmt.Println(absf, "not directory")
 			os.Exit(1)
+		}
+		if !optForce {
+			count := 0
+			for _, x := range absf {
+				if x == '/' {
+					count++
+				}
+			}
+			// /path/to/dir is allowed, but /path/to is not
+			if count < 3 {
+				fmt.Println(absf, "not allowed")
+				os.Exit(1)
+			}
 		}
 		input = append(input, absf)
 	}

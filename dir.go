@@ -442,7 +442,7 @@ func fsyncInode(f string) error {
 }
 
 func isWriteDone(thr *gThread) bool {
-	if !isWriter(thr) || optNumWritePaths <= 0 {
+	if !thr.isWriter() || optNumWritePaths <= 0 {
 		return false
 	} else {
 		return len(thr.dir.writePaths) >= optNumWritePaths
