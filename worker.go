@@ -153,6 +153,8 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 	for _, f := range input {
 		assert(filepath.IsAbs(f))
 	}
+	assert(optTimeMinute == 0)
+	assert(optMonitorIntMinute == 0)
 
 	// number of readers and writers are 0 by default
 	if optNumReader == 0 && optNumWriter == 0 {
@@ -198,10 +200,11 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 		defer wg.Done()
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT)
+		label := "[signal]"
 		for {
 			select {
 			case <-interrupt_ch:
-				dbg("interrupt")
+				dbg(label, "interrupt")
 				return
 			case s := <-ch:
 				dbg("signal", s)
@@ -213,6 +216,34 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 			}
 		}
 	}()
+
+	// monitor goroutine
+	if optMonitorIntSecond > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			d := time.Duration(time.Duration(optMonitorIntSecond) * time.Second)
+			timer_ch := time.After(d)
+			label := "[monitor]"
+			for {
+				select {
+				case <-interrupt_ch:
+					dbg(label, "interrupt")
+					return
+				case <-timer_ch:
+					dbg(label, "timer")
+					// ignore possible race
+					var tsv []threadStat
+					for i := 0; i < len(thrv); i++ {
+						thrv[i].stat.setTimeEnd()
+						tsv = append(tsv, thrv[i].stat)
+					}
+					printStat(tsv)
+					timer_ch = time.After(d)
+				}
+			}
+		}()
+	}
 
 	// worker goroutines
 	for i := 0; i < len(thrv); i++ {
@@ -242,10 +273,8 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 
 			// set timer for this goroutine if specified
 			var timer_ch <-chan time.Time
-			if optTimeSecond > 0 || optTimeMinute > 0 {
-				timer_ch = time.After(
-					time.Duration(optTimeMinute)*time.Minute +
-						time.Duration(optTimeSecond)*time.Second)
+			if optTimeSecond > 0 {
+				timer_ch = time.After(time.Duration(optTimeSecond) * time.Second)
 			}
 
 			// start loop

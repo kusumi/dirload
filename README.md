@@ -1,4 +1,4 @@
-dirload ([v0.4.4](https://github.com/kusumi/dirload/releases/tag/v0.4.4))
+dirload ([v0.4.5](https://github.com/kusumi/dirload/releases/tag/v0.4.5))
 ========
 
 ## About
@@ -42,6 +42,10 @@ go 1.18 or above
             Do not unlink write paths after writer Goroutines exit
       -lstat
             Do not resolve symbolic links
+      -monitor_interval_minute int
+            Monitor Goroutines every sum of this and -monitor_interval_second option if > 0
+      -monitor_interval_second int
+            Monitor Goroutines every sum of this and -monitor_interval_minute option if > 0
       -num_reader int
             Number of reader Goroutines
       -num_repeat int

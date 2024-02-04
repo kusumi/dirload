@@ -13,12 +13,14 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 4}
+	version               [3]int = [3]int{0, 4, 5}
 	optNumReader          uint
 	optNumWriter          uint
 	optNumRepeat          int
 	optTimeMinute         uint
 	optTimeSecond         uint
+	optMonitorIntMinute   uint
+	optMonitorIntSecond   uint
 	optStatOnly           bool
 	optIgnoreDot          bool
 	optLstat              bool
@@ -64,6 +66,8 @@ func main() {
 	opt_num_repeat := flag.Int("num_repeat", -1, "Exit Goroutines after specified iterations if > 0")
 	opt_time_minute := flag.Int("time_minute", 0, "Exit Goroutines after sum of this and -time_second option if > 0")
 	opt_time_second := flag.Int("time_second", 0, "Exit Goroutines after sum of this and -time_minute option if > 0")
+	opt_monitor_int_minute := flag.Int("monitor_interval_minute", 0, "Monitor Goroutines every sum of this and -monitor_interval_second option if > 0")
+	opt_monitor_int_second := flag.Int("monitor_interval_second", 0, "Monitor Goroutines every sum of this and -monitor_interval_minute option if > 0")
 	opt_stat_only := flag.Bool("stat_only", false, "Do not read file data")
 	opt_ignore_dot := flag.Bool("ignore_dot", false, "Ignore entries start with .")
 	opt_lstat := flag.Bool("lstat", false, "Do not resolve symbolic links")
@@ -99,6 +103,12 @@ func main() {
 	}
 	optTimeMinute = uint(*opt_time_minute)
 	optTimeSecond = uint(*opt_time_second)
+	optTimeSecond += optTimeMinute * 60
+	optTimeMinute = 0
+	optMonitorIntMinute = uint(*opt_monitor_int_minute)
+	optMonitorIntSecond = uint(*opt_monitor_int_second)
+	optMonitorIntSecond += optMonitorIntMinute * 60
+	optMonitorIntMinute = 0
 	optStatOnly = *opt_stat_only
 	optIgnoreDot = *opt_ignore_dot
 	optLstat = *opt_lstat
