@@ -1,10 +1,14 @@
+v0.4.6
+======
+- Add -num_set option
+
 v0.4.5
 ======
 - Add monitor goroutine
 
 v0.4.4
 ======
-- Change --path_iter to default to "ordered"
+- Change -path_iter to default to "ordered"
 - Misc changes / fixes
 
 v0.4.3

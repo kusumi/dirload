@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 5}
+	version               [3]int = [3]int{0, 4, 6}
+	optNumSet             uint
 	optNumReader          uint
 	optNumWriter          uint
 	optNumRepeat          int
@@ -61,6 +62,7 @@ func usage(progname string) {
 func main() {
 	progname := path.Base(os.Args[0])
 
+	opt_num_set := flag.Int("num_set", 1, "Number of sets to run")
 	opt_num_reader := flag.Int("num_reader", 0, "Number of reader Goroutines")
 	opt_num_writer := flag.Int("num_writer", 0, "Number of writer Goroutines")
 	opt_num_repeat := flag.Int("num_repeat", -1, "Exit Goroutines after specified iterations if > 0")
@@ -95,6 +97,7 @@ func main() {
 
 	flag.Parse()
 	args := flag.Args()
+	optNumSet = uint(*opt_num_set)
 	optNumReader = uint(*opt_num_reader)
 	optNumWriter = uint(*opt_num_writer)
 	optNumRepeat = *opt_num_repeat
@@ -254,7 +257,7 @@ func main() {
 			}
 			// /path/to/dir is allowed, but /path/to is not
 			if count < 3 {
-				fmt.Println(absf, "not allowed")
+				fmt.Println(absf, "not allowed, use -force option to proceed")
 				os.Exit(1)
 			}
 		}
@@ -311,34 +314,45 @@ func main() {
 	}
 
 	// ready to dispatch workers
-	rand.Seed(time.Now().UnixNano())
-	_, num_interrupted, num_error, num_remain, tsv, err := dispatchWorker(input)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	if num_interrupted > 0 {
-		var s string
-		if num_interrupted > 1 {
-			s = "s"
+	for i := uint(0); i < optNumSet; i++ {
+		if optNumSet != 1 {
+			fmt.Println(strings.Repeat("=", 80))
+			s := fmt.Sprintf("Set %d/%d", i+1, optNumSet)
+			fmt.Println(s)
+			dbg(s)
 		}
-		fmt.Println() // ^C
-		fmt.Printf("%d worker%s interrupted\n", num_interrupted, s)
-	}
-	if num_error > 0 {
-		var s string
-		if num_error > 1 {
-			s = "s"
+		rand.Seed(time.Now().UnixNano())
+		_, num_interrupted, num_error, num_remain, tsv, err := dispatchWorker(input)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
-		fmt.Printf("%d worker%s failed\n", num_error, s)
-	}
-	if num_remain > 0 {
-		var s string
-		if num_remain > 1 {
-			s = "s"
+		if num_interrupted > 0 {
+			var s string
+			if num_interrupted > 1 {
+				s = "s"
+			}
+			fmt.Printf("%d worker%s interrupted\n", num_interrupted, s)
 		}
-		fmt.Printf("%d write path%s remaining\n", num_remain, s)
+		if num_error > 0 {
+			var s string
+			if num_error > 1 {
+				s = "s"
+			}
+			fmt.Printf("%d worker%s failed\n", num_error, s)
+		}
+		if num_remain > 0 {
+			var s string
+			if num_remain > 1 {
+				s = "s"
+			}
+			fmt.Printf("%d write path%s remaining\n", num_remain, s)
+		}
+		printStat(tsv)
+		if num_interrupted > 0 {
+			break
+		} else if optNumSet != 1 && i != optNumSet-1 {
+			fmt.Println()
+		}
 	}
-
-	printStat(tsv)
 }

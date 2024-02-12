@@ -1,4 +1,4 @@
-dirload ([v0.4.5](https://github.com/kusumi/dirload/releases/tag/v0.4.5))
+dirload ([v0.4.6](https://github.com/kusumi/dirload/releases/tag/v0.4.6))
 ========
 
 ## About
@@ -50,6 +50,8 @@ go 1.18 or above
             Number of reader Goroutines
       -num_repeat int
             Exit Goroutines after specified iterations if > 0 (default -1)
+      -num_set int
+            Number of sets to run (default 1)
       -num_write_paths int
             Exit writer Goroutines after creating specified files or directories if > 0 (default 1024)
       -num_writer int
