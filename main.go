@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 6}
+	version               [3]int = [3]int{0, 4, 7}
 	optNumSet             uint
 	optNumReader          uint
 	optNumWriter          uint
@@ -24,7 +24,7 @@ var (
 	optMonitorIntSecond   uint
 	optStatOnly           bool
 	optIgnoreDot          bool
-	optLstat              bool
+	optFollowSymlink      bool
 	optReadBufferSize     uint
 	optReadSize           int
 	optWriteBufferSize    uint
@@ -37,7 +37,7 @@ var (
 	optKeepWritePaths     bool
 	optCleanWritePaths    bool
 	optWritePathsBase     string
-	optWritePathsType     string
+	optWritePathsType     []fileType
 	optPathIter           uint
 	optFlistFile          string
 	optFlistFileCreate    bool
@@ -72,7 +72,7 @@ func main() {
 	opt_monitor_int_second := flag.Int("monitor_interval_second", 0, "Monitor Goroutines every sum of this and -monitor_interval_minute option if > 0")
 	opt_stat_only := flag.Bool("stat_only", false, "Do not read file data")
 	opt_ignore_dot := flag.Bool("ignore_dot", false, "Ignore entries start with .")
-	opt_lstat := flag.Bool("lstat", false, "Do not resolve symbolic links")
+	opt_follow_symlink := flag.Bool("follow_symlink", false, "Follow symbolic links for read unless directory")
 	opt_read_buffer_size := flag.Int("read_buffer_size", 1<<16, "Read buffer size")
 	opt_read_size := flag.Int("read_size", -1, "Read residual size per file read, use < read_buffer_size random size if 0")
 	opt_write_buffer_size := flag.Int("write_buffer_size", 1<<16, "Write buffer size")
@@ -114,7 +114,7 @@ func main() {
 	optMonitorIntMinute = 0
 	optStatOnly = *opt_stat_only
 	optIgnoreDot = *opt_ignore_dot
-	optLstat = *opt_lstat
+	optFollowSymlink = *opt_follow_symlink
 	optReadBufferSize = uint(*opt_read_buffer_size)
 	if optReadBufferSize > maxBufferSize {
 		fmt.Println("Invalid read buffer size", optReadBufferSize)
@@ -150,7 +150,7 @@ func main() {
 	optKeepWritePaths = *opt_keep_write_paths
 	optCleanWritePaths = *opt_clean_write_paths
 	optWritePathsBase = *opt_write_paths_base
-	if optWritePathsBase == "" {
+	if len(optWritePathsBase) == 0 {
 		fmt.Println("Empty write paths base")
 		os.Exit(1)
 	}
@@ -158,15 +158,27 @@ func main() {
 		optWritePathsBase = strings.Repeat("x", n)
 		fmt.Println("Using base name", optWritePathsBase, "for write paths")
 	}
-	optWritePathsType = *opt_write_paths_type
-	if optWritePathsType == "" {
+	if s := *opt_write_paths_type; len(s) == 0 {
 		fmt.Println("Empty write paths type")
 		os.Exit(1)
-	}
-	for _, x := range optWritePathsType {
-		if x != 'd' && x != 'r' && x != 's' && x != 'l' {
-			fmt.Println("Invalid write paths type", string(x))
-			os.Exit(1)
+	} else {
+		optWritePathsType = make([]fileType, len(s))
+		for i, x := range s {
+			var t fileType
+			switch x {
+			case 'd':
+				t = DIR
+			case 'r':
+				t = REG
+			case 's':
+				t = SYMLINK
+			case 'l':
+				t = LINK
+			default:
+				fmt.Println("Invalid write paths type", string(x))
+				os.Exit(1)
+			}
+			optWritePathsType[i] = t
 		}
 	}
 	switch *opt_path_iter {
@@ -184,7 +196,7 @@ func main() {
 	}
 	optFlistFile = *opt_flist_file
 	// using flist file means not walking input directories
-	if optFlistFile != "" && optPathIter == PATH_ITER_WALK {
+	if len(optFlistFile) != 0 && optPathIter == PATH_ITER_WALK {
 		optPathIter = PATH_ITER_ORDERED
 		fmt.Println("Using flist, force -path_iter=ordered")
 	}
@@ -279,7 +291,7 @@ func main() {
 
 	// create flist and exit
 	if optFlistFileCreate {
-		if optFlistFile == "" {
+		if len(optFlistFile) == 0 {
 			fmt.Println("Empty flist file path")
 			os.Exit(1)
 		}

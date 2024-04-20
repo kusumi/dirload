@@ -147,7 +147,7 @@ func printStat(tsv []threadStat) {
 	// path
 	width_path := len("path")
 	for i := 0; i < len(tsv); i++ {
-		assert(tsv[i].inputPath != "")
+		assert(len(tsv[i].inputPath) != 0)
 		if len(tsv[i].inputPath) > width_path {
 			width_path = len(tsv[i].inputPath)
 		}

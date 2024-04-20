@@ -1,3 +1,10 @@
+v0.4.7
+======
+- Remove -lstat option
+- Add -follow_symlink option
+- Minor bug fix
+- Misc updates
+
 v0.4.6
 ======
 - Add -num_set option

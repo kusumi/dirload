@@ -10,7 +10,7 @@ func Test_newReadStat(t *testing.T) {
 	if !ts.isReader {
 		t.Error(ts.isReader)
 	}
-	if ts.inputPath != "" {
+	if len(ts.inputPath) != 0 {
 		t.Error(ts.inputPath)
 	}
 	if ts.numRepeat != 0 {
@@ -38,7 +38,7 @@ func Test_newWriteStat(t *testing.T) {
 	if ts.isReader {
 		t.Error(ts.isReader)
 	}
-	if ts.inputPath != "" {
+	if len(ts.inputPath) != 0 {
 		t.Error(ts.inputPath)
 	}
 	if ts.numRepeat != 0 {

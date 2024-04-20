@@ -1,4 +1,4 @@
-dirload ([v0.4.6](https://github.com/kusumi/dirload/releases/tag/v0.4.6))
+dirload ([v0.4.7](https://github.com/kusumi/dirload/releases/tag/v0.4.7))
 ========
 
 ## About
@@ -31,6 +31,8 @@ go 1.18 or above
             Path to flist file
       -flist_file_create
             Create flist file and exit
+      -follow_symlink
+            Follow symbolic links for read unless directory
       -force
             Enable force mode
       -fsync_write_paths
@@ -40,8 +42,6 @@ go 1.18 or above
             Ignore entries start with .
       -keep_write_paths
             Do not unlink write paths after writer Goroutines exit
-      -lstat
-            Do not resolve symbolic links
       -monitor_interval_minute int
             Monitor Goroutines every sum of this and -monitor_interval_second option if > 0
       -monitor_interval_second int

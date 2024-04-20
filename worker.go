@@ -71,7 +71,7 @@ func newWrite(gid uint, bufsiz uint) gThread {
 
 func setupFlistImpl(input []string) ([][]string, error) {
 	fls := make([][]string, len(input))
-	if optFlistFile != "" {
+	if len(optFlistFile) != 0 {
 		// load flist from flist file
 		assert(optPathIter != PATH_ITER_WALK)
 		fmt.Println("flist_file", optFlistFile)
@@ -169,7 +169,7 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 	signaled := false
 
 	// initialize dir
-	initDir(optRandomWriteData, optWritePathsType)
+	initDir(optRandomWriteData)
 
 	// initialize thread structure
 	num_thread := optNumReader + optNumWriter
@@ -235,7 +235,9 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 					// ignore possible race
 					var tsv []threadStat
 					for i := 0; i < len(thrv); i++ {
-						thrv[i].stat.setTimeEnd()
+						if thrv[i].num_complete == 0 {
+							thrv[i].stat.setTimeEnd()
+						}
 						tsv = append(tsv, thrv[i].stat)
 					}
 					printStat(tsv)
@@ -268,7 +270,9 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 						signal_ch <- 1
 					}
 				}
-				thr.stat.setTimeEnd()
+				if thr.num_complete == 0 {
+					thr.stat.setTimeEnd()
+				}
 			}()
 
 			// set timer for this goroutine if specified
@@ -377,6 +381,7 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 			}
 			debugPrintComplete(thr, repeat, nil)
 			thr.num_complete++
+			thr.stat.setTimeEnd()
 		}()
 	}
 

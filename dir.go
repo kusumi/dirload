@@ -44,10 +44,9 @@ func newWriteDir(bufsiz uint) threadDir {
 var (
 	randomWriteData []byte
 	writePathsTs    string
-	writePathsType  []fileType
 )
 
-func initDir(random bool, write_paths_type string) {
+func initDir(random bool) {
 	if random {
 		assert(maxBufferSize > 0)
 		randomWriteData = make([]byte, maxBufferSize*2) // doubled
@@ -56,25 +55,6 @@ func initDir(random bool, write_paths_type string) {
 		}
 	}
 	writePathsTs = time.Now().Format("20060102150405")
-
-	assert(len(write_paths_type) != 0)
-	writePathsType = make([]fileType, len(write_paths_type))
-	for i, x := range write_paths_type {
-		var t fileType
-		switch x {
-		case 'd':
-			t = DIR
-		case 'r':
-			t = REG
-		case 's':
-			t = SYMLINK
-		case 'l':
-			t = LINK
-		default:
-			assert(false)
-		}
-		writePathsType[i] = t
-	}
 }
 
 func cleanupWritePaths(tdv []*threadDir, keep_write_paths bool) (int, error) {
@@ -162,34 +142,36 @@ func readEntry(f string, thr *gThread) error {
 	}
 
 	// find target if symlink
+	var x string
 	switch t {
 	case SYMLINK:
-		l := f
-		f, err = os.Readlink(f)
+		x, err = os.Readlink(f)
 		if err != nil {
 			return err
 		}
-		thr.stat.addNumReadBytes(len(f))
-		if !filepath.IsAbs(f) {
-			f = filepath.Join(filepath.Dir(l), f)
-			assert(filepath.IsAbs(f))
+		thr.stat.addNumReadBytes(len(x))
+		if !filepath.IsAbs(x) {
+			x = filepath.Join(filepath.Dir(f), x)
+			assert(filepath.IsAbs(x))
 		}
-		t, err = getFileType(f)
+		t, err = getFileType(x) // update type
 		if err != nil {
 			return err
 		}
 		thr.stat.incNumStat() // count twice for symlink
 		assert(t != SYMLINK)  // symlink chains resolved
-		if optLstat {
+		if !optFollowSymlink {
 			return nil
 		}
+	default:
+		x = f
 	}
 
 	switch t {
 	case DIR:
 		return nil
 	case REG:
-		if err := readFile(f, thr); err != nil {
+		if err := readFile(x, thr); err != nil {
 			return err
 		}
 		return nil
@@ -198,9 +180,9 @@ func readEntry(f string, thr *gThread) error {
 	case UNSUPPORTED:
 		return nil
 	case INVALID:
-		panicFileType(f, "invalid", t)
+		panicFileType(x, "invalid", t)
 	default:
-		panicFileType(f, "unknown", t)
+		panicFileType(x, "unknown", t)
 	}
 
 	assert(false)
@@ -315,7 +297,7 @@ func writeFile(d string, f string, thr *gThread) error {
 	newf := filepath.Join(d, newb)
 
 	// create an inode
-	t := writePathsType[rand.Intn(len(writePathsType))]
+	t := optWritePathsType[rand.Intn(len(optWritePathsType))]
 	if err := creatInode(f, newf, t); err != nil {
 		return err
 	}

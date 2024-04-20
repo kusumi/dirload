@@ -143,7 +143,7 @@ func kassert(c bool, err interface{}) {
 
 func panicFileType(f string, how string, t fileType) {
 	var s string
-	if f != "" {
+	if len(f) != 0 {
 		s = fmt.Sprintf("%s has %s file type %d", f, how, t)
 	} else {
 		s = fmt.Sprintf("%s file type %d", how, t)
