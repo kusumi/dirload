@@ -10,23 +10,23 @@ import (
 )
 
 var (
-	gl_ch = make(chan int, 1)
+	globalCh = make(chan int, 1)
 )
 
 func initLock() {
-	gl_ch <- 1
+	globalCh <- 1
 }
 
 func cleanupLock() {
-	close(gl_ch)
+	close(globalCh)
 }
 
 func globalLock() {
-	<-gl_ch
+	<-globalCh
 }
 
 func globalUnlock() {
-	gl_ch <- 1
+	globalCh <- 1
 }
 
 func isLinux() bool {
@@ -44,19 +44,19 @@ func getPathSeparator() string {
 type fileType int
 
 const (
-	DIR fileType = iota
-	REG
-	DEVICE
-	SYMLINK
-	UNSUPPORTED
-	INVALID
-	LINK // hardlink
+	typeDir fileType = iota
+	typeReg
+	typeDevice
+	typeSymlink
+	typeUnsupported
+	typeInvalid
+	typeLink // hardlink
 )
 
 func getRawFileType(f string) (fileType, error) {
 	info, err := os.Lstat(f)
 	if err != nil {
-		return INVALID, err
+		return typeInvalid, err
 	}
 
 	return getModeType(info.Mode()), nil
@@ -65,7 +65,7 @@ func getRawFileType(f string) (fileType, error) {
 func getFileType(f string) (fileType, error) {
 	info, err := os.Stat(f)
 	if err != nil {
-		return INVALID, err
+		return typeInvalid, err
 	}
 
 	return getModeType(info.Mode()), nil
@@ -73,17 +73,17 @@ func getFileType(f string) (fileType, error) {
 
 func getModeType(m fs.FileMode) fileType {
 	if m.IsDir() {
-		return DIR
+		return typeDir
 	} else if m.IsRegular() {
-		return REG
+		return typeReg
 	} else if m&fs.ModeDevice != 0 {
 		// XXX assuming blk on Linux, chr on *BSD
-		return DEVICE
+		return typeDevice
 	} else if m&fs.ModeSymlink != 0 {
-		return SYMLINK
+		return typeSymlink
 	}
 
-	return UNSUPPORTED
+	return typeUnsupported
 }
 
 func pathExists(f string) (bool, error) {
@@ -102,7 +102,7 @@ func isDotPath(f string) bool {
 func isDirWritable(f string) (bool, error) {
 	if t, err := getRawFileType(f); err != nil {
 		return false, err
-	} else if t != DIR {
+	} else if t != typeDir {
 		return false, fmt.Errorf("%s not directory", f)
 	}
 

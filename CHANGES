@@ -1,3 +1,8 @@
+v0.4.8
+======
+- Misc updates
+- Fix "sec" bug (since v0.4.7)
+
 v0.4.7
 ======
 - Remove -lstat option

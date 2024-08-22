@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-func initFlist(input string, ignore_dot bool) ([]string, error) {
+func initFlist(input string, ignoreDot bool) ([]string, error) {
 	var l []string
 	if err := filepath.WalkDir(input,
 		func(f string, d fs.DirEntry, err error) error {
@@ -24,9 +24,9 @@ func initFlist(input string, ignore_dot bool) ([]string, error) {
 			}
 
 			// ignore . entries if specified
-			if ignore_dot {
+			if ignoreDot {
 				// XXX want retval to ignore children for .directory
-				if t != DIR {
+				if t != typeDir {
 					if isDotPath(f) {
 						return nil
 					}
@@ -34,17 +34,17 @@ func initFlist(input string, ignore_dot bool) ([]string, error) {
 			}
 
 			switch t {
-			case DIR:
+			case typeDir:
 				return nil
-			case REG:
+			case typeReg:
 				l = append(l, f)
-			case DEVICE:
+			case typeDevice:
 				return nil
-			case SYMLINK:
+			case typeSymlink:
 				l = append(l, f)
-			case UNSUPPORTED:
+			case typeUnsupported:
 				return nil
-			case INVALID:
+			case typeInvalid:
 				panicFileType(f, "invalid", t)
 			default:
 				panicFileType(f, "unknown", t)
@@ -56,8 +56,8 @@ func initFlist(input string, ignore_dot bool) ([]string, error) {
 	return l, nil
 }
 
-func loadFlistFile(flist_file string) ([]string, error) {
-	fp, err := os.Open(flist_file)
+func loadFlistFile(flistFile string) ([]string, error) {
+	fp, err := os.Open(flistFile)
 	if err != nil {
 		return nil, err
 	}
@@ -72,22 +72,22 @@ func loadFlistFile(flist_file string) ([]string, error) {
 	return fl, scanner.Err()
 }
 
-func createFlistFile(input []string, flist_file string, ignore_dot bool, force bool) error {
-	if _, err := os.Stat(flist_file); err == nil {
+func createFlistFile(input []string, flistFile string, ignoreDot bool, force bool) error {
+	if _, err := os.Stat(flistFile); err == nil {
 		if force {
-			if err := os.Remove(flist_file); err != nil {
+			if err := os.Remove(flistFile); err != nil {
 				return err
 			} else {
-				fmt.Println("Removed", flist_file)
+				fmt.Println("Removed", flistFile)
 			}
 		} else {
-			return fmt.Errorf("%s exists", flist_file)
+			return fmt.Errorf("%s exists", flistFile)
 		}
 	}
 
 	var fl []string
 	for _, f := range input {
-		if l, err := initFlist(f, ignore_dot); err != nil {
+		if l, err := initFlist(f, ignoreDot); err != nil {
 			return err
 		} else {
 			fmt.Println(len(l), "files scanned from", f)
@@ -96,7 +96,7 @@ func createFlistFile(input []string, flist_file string, ignore_dot bool, force b
 	}
 	sort.Strings(fl)
 
-	fp, err := os.OpenFile(flist_file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	fp, err := os.OpenFile(flistFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

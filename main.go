@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 7}
+	version               [3]int = [3]int{0, 4, 8}
 	optNumSet             uint
 	optNumReader          uint
 	optNumWriter          uint
@@ -62,94 +62,120 @@ func usage(progname string) {
 func main() {
 	progname := path.Base(os.Args[0])
 
-	opt_num_set := flag.Int("num_set", 1, "Number of sets to run")
-	opt_num_reader := flag.Int("num_reader", 0, "Number of reader Goroutines")
-	opt_num_writer := flag.Int("num_writer", 0, "Number of writer Goroutines")
-	opt_num_repeat := flag.Int("num_repeat", -1, "Exit Goroutines after specified iterations if > 0")
-	opt_time_minute := flag.Int("time_minute", 0, "Exit Goroutines after sum of this and -time_second option if > 0")
-	opt_time_second := flag.Int("time_second", 0, "Exit Goroutines after sum of this and -time_minute option if > 0")
-	opt_monitor_int_minute := flag.Int("monitor_interval_minute", 0, "Monitor Goroutines every sum of this and -monitor_interval_second option if > 0")
-	opt_monitor_int_second := flag.Int("monitor_interval_second", 0, "Monitor Goroutines every sum of this and -monitor_interval_minute option if > 0")
-	opt_stat_only := flag.Bool("stat_only", false, "Do not read file data")
-	opt_ignore_dot := flag.Bool("ignore_dot", false, "Ignore entries start with .")
-	opt_follow_symlink := flag.Bool("follow_symlink", false, "Follow symbolic links for read unless directory")
-	opt_read_buffer_size := flag.Int("read_buffer_size", 1<<16, "Read buffer size")
-	opt_read_size := flag.Int("read_size", -1, "Read residual size per file read, use < read_buffer_size random size if 0")
-	opt_write_buffer_size := flag.Int("write_buffer_size", 1<<16, "Write buffer size")
-	opt_write_size := flag.Int("write_size", -1, "Write residual size per file write, use < write_buffer_size random size if 0")
-	opt_random_write_data := flag.Bool("random_write_data", false, "Use pseudo random write data")
-	opt_num_write_paths := flag.Int("num_write_paths", 1<<10, "Exit writer Goroutines after creating specified files or directories if > 0")
-	opt_truncate_write_paths := flag.Bool("truncate_write_paths", false, "ftruncate(2) write paths for regular files instead of write(2)")
-	opt_fsync_write_paths := flag.Bool("fsync_write_paths", false, "fsync(2) write paths")
-	opt_dirsync_write_paths := flag.Bool("dirsync_write_paths", false, "fsync(2) parent directories of write paths")
-	opt_keep_write_paths := flag.Bool("keep_write_paths", false, "Do not unlink write paths after writer Goroutines exit")
-	opt_clean_write_paths := flag.Bool("clean_write_paths", false, "Unlink existing write paths and exit")
-	opt_write_paths_base := flag.String("write_paths_base", "x", "Base name for write paths")
-	opt_write_paths_type := flag.String("write_paths_type", "dr", "File types for write paths [d|r|s|l]")
-	opt_path_iter := flag.String("path_iter", "ordered", "<paths> iteration type [walk|ordered|reverse|random]")
-	opt_flist_file := flag.String("flist_file", "", "Path to flist file")
-	opt_flist_file_create := flag.Bool("flist_file_create", false, "Create flist file and exit")
-	opt_force := flag.Bool("force", false, "Enable force mode")
-	opt_verbose := flag.Bool("verbose", false, "Enable verbose print")
-	opt_debug := flag.Bool("debug", false, "Create debug log file under home directory")
-	opt_version := flag.Bool("v", false, "Print version and exit")
-	opt_help_h := flag.Bool("h", false, "Print usage and exit")
+	optNumSetAddr := flag.Int("num_set", 1, "Number of sets to run")
+	optNumReaderAddr := flag.Int("num_reader", 0,
+		"Number of reader Goroutines")
+	optNumWriterAddr := flag.Int("num_writer", 0,
+		"Number of writer Goroutines")
+	optNumRepeatAddr := flag.Int("num_repeat", -1,
+		"Exit Goroutines after specified iterations if > 0")
+	optTimeMinuteAddr := flag.Int("time_minute", 0,
+		"Exit Goroutines after sum of this and -time_second option if > 0")
+	optTimeSecondAddr := flag.Int("time_second", 0,
+		"Exit Goroutines after sum of this and -time_minute option if > 0")
+	optMonitorIntMinuteAddr := flag.Int("monitor_interval_minute", 0,
+		"Monitor Goroutines every sum of this and -monitor_interval_second option if > 0")
+	optMonitorIntSecondAddr := flag.Int("monitor_interval_second", 0,
+		"Monitor Goroutines every sum of this and -monitor_interval_minute option if > 0")
+	optStatOnlyAddr := flag.Bool("stat_only", false,
+		"Do not read file data")
+	optIgnoreDotAddr := flag.Bool("ignore_dot", false,
+		"Ignore entries start with .")
+	optFollowSymlinkAddr := flag.Bool("follow_symlink", false,
+		"Follow symbolic links for read unless directory")
+	optReadBufferSizeAddr := flag.Int("read_buffer_size", 1<<16,
+		"Read buffer size")
+	optReadSizeAddr := flag.Int("read_size", -1,
+		"Read residual size per file read, use < read_buffer_size random size if 0")
+	optWriteBufferSizeAddr := flag.Int("write_buffer_size", 1<<16,
+		"Write buffer size")
+	optWriteSizeAddr := flag.Int("write_size", -1,
+		"Write residual size per file write, use < write_buffer_size random size if 0")
+	optRandomWriteDataAddr := flag.Bool("random_write_data", false,
+		"Use pseudo random write data")
+	optNumWritePathsAddr := flag.Int("num_write_paths", 1<<10,
+		"Exit writer Goroutines after creating specified files or directories if > 0")
+	optTruncateWritePathsAddr := flag.Bool("truncate_write_paths", false,
+		"ftruncate(2) write paths for regular files instead of write(2)")
+	optFsyncWritePathsAddr := flag.Bool("fsync_write_paths", false,
+		"fsync(2) write paths")
+	optDirsyncWritePathsAddr := flag.Bool("dirsync_write_paths", false,
+		"fsync(2) parent directories of write paths")
+	optKeepWritePathsAddr := flag.Bool("keep_write_paths", false,
+		"Do not unlink write paths after writer Goroutines exit")
+	optCleanWritePathsAddr := flag.Bool("clean_write_paths", false,
+		"Unlink existing write paths and exit")
+	optWritePathsBaseAddr := flag.String("write_paths_base", "x",
+		"Base name for write paths")
+	optWritePathsTypeAddr := flag.String("write_paths_type", "dr",
+		"File types for write paths [d|r|s|l]")
+	optPathIterAddr := flag.String("path_iter", "ordered",
+		"<paths> iteration type [walk|ordered|reverse|random]")
+	optFlistFileAddr := flag.String("flist_file", "", "Path to flist file")
+	optFlistFileCreateAddr := flag.Bool("flist_file_create", false,
+		"Create flist file and exit")
+	optForceAddr := flag.Bool("force", false, "Enable force mode")
+	optVerboseAddr := flag.Bool("verbose", false, "Enable verbose print")
+	optDebugAddr := flag.Bool("debug", false,
+		"Create debug log file under home directory")
+	optVersionAddr := flag.Bool("v", false, "Print version and exit")
+	optHelpAddr := flag.Bool("h", false, "Print usage and exit")
 
 	flag.Parse()
 	args := flag.Args()
-	optNumSet = uint(*opt_num_set)
-	optNumReader = uint(*opt_num_reader)
-	optNumWriter = uint(*opt_num_writer)
-	optNumRepeat = *opt_num_repeat
+	optNumSet = uint(*optNumSetAddr)
+	optNumReader = uint(*optNumReaderAddr)
+	optNumWriter = uint(*optNumWriterAddr)
+	optNumRepeat = *optNumRepeatAddr
 	if optNumRepeat == 0 || optNumRepeat < -1 {
 		optNumRepeat = -1
 	}
-	optTimeMinute = uint(*opt_time_minute)
-	optTimeSecond = uint(*opt_time_second)
+	optTimeMinute = uint(*optTimeMinuteAddr)
+	optTimeSecond = uint(*optTimeSecondAddr)
 	optTimeSecond += optTimeMinute * 60
 	optTimeMinute = 0
-	optMonitorIntMinute = uint(*opt_monitor_int_minute)
-	optMonitorIntSecond = uint(*opt_monitor_int_second)
+	optMonitorIntMinute = uint(*optMonitorIntMinuteAddr)
+	optMonitorIntSecond = uint(*optMonitorIntSecondAddr)
 	optMonitorIntSecond += optMonitorIntMinute * 60
 	optMonitorIntMinute = 0
-	optStatOnly = *opt_stat_only
-	optIgnoreDot = *opt_ignore_dot
-	optFollowSymlink = *opt_follow_symlink
-	optReadBufferSize = uint(*opt_read_buffer_size)
+	optStatOnly = *optStatOnlyAddr
+	optIgnoreDot = *optIgnoreDotAddr
+	optFollowSymlink = *optFollowSymlinkAddr
+	optReadBufferSize = uint(*optReadBufferSizeAddr)
 	if optReadBufferSize > maxBufferSize {
 		fmt.Println("Invalid read buffer size", optReadBufferSize)
 		os.Exit(1)
 	}
-	optReadSize = *opt_read_size
+	optReadSize = *optReadSizeAddr
 	if optReadSize < -1 {
 		optReadSize = -1
 	} else if optReadSize > int(maxBufferSize) {
 		fmt.Println("Invalid read size", optReadSize)
 		os.Exit(1)
 	}
-	optWriteBufferSize = uint(*opt_write_buffer_size)
+	optWriteBufferSize = uint(*optWriteBufferSizeAddr)
 	if optWriteBufferSize > maxBufferSize {
 		fmt.Println("Invalid write buffer size", optWriteBufferSize)
 		os.Exit(1)
 	}
-	optWriteSize = *opt_write_size
+	optWriteSize = *optWriteSizeAddr
 	if optWriteSize < -1 {
 		optWriteSize = -1
 	} else if optWriteSize > int(maxBufferSize) {
 		fmt.Println("Invalid write size", optWriteSize)
 		os.Exit(1)
 	}
-	optRandomWriteData = *opt_random_write_data
-	optNumWritePaths = *opt_num_write_paths
+	optRandomWriteData = *optRandomWriteDataAddr
+	optNumWritePaths = *optNumWritePathsAddr
 	if optNumWritePaths < -1 {
 		optNumWritePaths = -1
 	}
-	optTruncateWritePaths = *opt_truncate_write_paths
-	optFsyncWritePaths = *opt_fsync_write_paths
-	optDirsyncWritePaths = *opt_dirsync_write_paths
-	optKeepWritePaths = *opt_keep_write_paths
-	optCleanWritePaths = *opt_clean_write_paths
-	optWritePathsBase = *opt_write_paths_base
+	optTruncateWritePaths = *optTruncateWritePathsAddr
+	optFsyncWritePaths = *optFsyncWritePathsAddr
+	optDirsyncWritePaths = *optDirsyncWritePathsAddr
+	optKeepWritePaths = *optKeepWritePathsAddr
+	optCleanWritePaths = *optCleanWritePathsAddr
+	optWritePathsBase = *optWritePathsBaseAddr
 	if len(optWritePathsBase) == 0 {
 		fmt.Println("Empty write paths base")
 		os.Exit(1)
@@ -158,7 +184,7 @@ func main() {
 		optWritePathsBase = strings.Repeat("x", n)
 		fmt.Println("Using base name", optWritePathsBase, "for write paths")
 	}
-	if s := *opt_write_paths_type; len(s) == 0 {
+	if s := *optWritePathsTypeAddr; len(s) == 0 {
 		fmt.Println("Empty write paths type")
 		os.Exit(1)
 	} else {
@@ -167,13 +193,13 @@ func main() {
 			var t fileType
 			switch x {
 			case 'd':
-				t = DIR
+				t = typeDir
 			case 'r':
-				t = REG
+				t = typeReg
 			case 's':
-				t = SYMLINK
+				t = typeSymlink
 			case 'l':
-				t = LINK
+				t = typeLink
 			default:
 				fmt.Println("Invalid write paths type", string(x))
 				os.Exit(1)
@@ -181,36 +207,36 @@ func main() {
 			optWritePathsType[i] = t
 		}
 	}
-	switch *opt_path_iter {
+	switch *optPathIterAddr {
 	case "walk":
-		optPathIter = PATH_ITER_WALK
+		optPathIter = pathIterWalk
 	case "ordered":
-		optPathIter = PATH_ITER_ORDERED
+		optPathIter = pathIterOrdered
 	case "reverse":
-		optPathIter = PATH_ITER_REVERSE
+		optPathIter = pathIterReverse
 	case "random":
-		optPathIter = PATH_ITER_RANDOM
+		optPathIter = pathIterRandom
 	default:
-		fmt.Println("Invalid path iteration type", *opt_path_iter)
+		fmt.Println("Invalid path iteration type", *optPathIterAddr)
 		os.Exit(1)
 	}
-	optFlistFile = *opt_flist_file
+	optFlistFile = *optFlistFileAddr
 	// using flist file means not walking input directories
-	if len(optFlistFile) != 0 && optPathIter == PATH_ITER_WALK {
-		optPathIter = PATH_ITER_ORDERED
+	if len(optFlistFile) != 0 && optPathIter == pathIterWalk {
+		optPathIter = pathIterOrdered
 		fmt.Println("Using flist, force -path_iter=ordered")
 	}
-	optFlistFileCreate = *opt_flist_file_create
-	optForce = *opt_force
-	optVerbose = *opt_verbose
-	optDebug = *opt_debug
+	optFlistFileCreate = *optFlistFileCreateAddr
+	optForce = *optForceAddr
+	optVerbose = *optVerboseAddr
+	optDebug = *optDebugAddr
 
-	if *opt_version {
+	if *optVersionAddr {
 		printVersion()
 		os.Exit(1)
 	}
 
-	if *opt_help_h {
+	if *optHelpAddr {
 		usage(progname)
 		os.Exit(1)
 	}
@@ -256,7 +282,7 @@ func main() {
 		if t, err := getRawFileType(absf); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
-		} else if t != DIR {
+		} else if t != typeDir {
 			fmt.Println(absf, "not directory")
 			os.Exit(1)
 		}
@@ -334,34 +360,34 @@ func main() {
 			dbg(s)
 		}
 		rand.Seed(time.Now().UnixNano())
-		_, num_interrupted, num_error, num_remain, tsv, err := dispatchWorker(input)
+		_, numInterrupted, numError, numRemain, tsv, err := dispatchWorker(input)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		if num_interrupted > 0 {
+		if numInterrupted > 0 {
 			var s string
-			if num_interrupted > 1 {
+			if numInterrupted > 1 {
 				s = "s"
 			}
-			fmt.Printf("%d worker%s interrupted\n", num_interrupted, s)
+			fmt.Printf("%d worker%s interrupted\n", numInterrupted, s)
 		}
-		if num_error > 0 {
+		if numError > 0 {
 			var s string
-			if num_error > 1 {
+			if numError > 1 {
 				s = "s"
 			}
-			fmt.Printf("%d worker%s failed\n", num_error, s)
+			fmt.Printf("%d worker%s failed\n", numError, s)
 		}
-		if num_remain > 0 {
+		if numRemain > 0 {
 			var s string
-			if num_remain > 1 {
+			if numRemain > 1 {
 				s = "s"
 			}
-			fmt.Printf("%d write path%s remaining\n", num_remain, s)
+			fmt.Printf("%d write path%s remaining\n", numRemain, s)
 		}
 		printStat(tsv)
-		if num_interrupted > 0 {
+		if numInterrupted > 0 {
 			break
 		} else if optNumSet != 1 && i != optNumSet-1 {
 			fmt.Println()

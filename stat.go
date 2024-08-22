@@ -72,50 +72,50 @@ func (this *threadStat) addNumWriteBytes(siz int) {
 
 func printStat(tsv []threadStat) {
 	// repeat
-	width_repeat := len("repeat")
+	widthRepeat := len("repeat")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numRepeat)); len(s) > width_repeat {
-			width_repeat = len(s)
+		if s := strconv.Itoa(int(tsv[i].numRepeat)); len(s) > widthRepeat {
+			widthRepeat = len(s)
 		}
 	}
 
 	// stat
-	width_stat := len("stat")
+	widthStat := len("stat")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numStat)); len(s) > width_stat {
-			width_stat = len(s)
+		if s := strconv.Itoa(int(tsv[i].numStat)); len(s) > widthStat {
+			widthStat = len(s)
 		}
 	}
 
 	// read
-	width_read := len("read")
+	widthRead := len("read")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numRead)); len(s) > width_read {
-			width_read = len(s)
+		if s := strconv.Itoa(int(tsv[i].numRead)); len(s) > widthRead {
+			widthRead = len(s)
 		}
 	}
 
 	// read[B]
-	width_read_bytes := len("read[B]")
+	widthReadBytes := len("read[B]")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numReadBytes)); len(s) > width_read_bytes {
-			width_read_bytes = len(s)
+		if s := strconv.Itoa(int(tsv[i].numReadBytes)); len(s) > widthReadBytes {
+			widthReadBytes = len(s)
 		}
 	}
 
 	// write
-	width_write := len("write")
+	widthWrite := len("write")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numWrite)); len(s) > width_write {
-			width_write = len(s)
+		if s := strconv.Itoa(int(tsv[i].numWrite)); len(s) > widthWrite {
+			widthWrite = len(s)
 		}
 	}
 
 	// write[B]
-	width_write_bytes := len("write[B]")
+	widthWriteBytes := len("write[B]")
 	for i := 0; i < len(tsv); i++ {
-		if s := strconv.Itoa(int(tsv[i].numWriteBytes)); len(s) > width_write_bytes {
-			width_write_bytes = len(s)
+		if s := strconv.Itoa(int(tsv[i].numWriteBytes)); len(s) > widthWriteBytes {
+			widthWriteBytes = len(s)
 		}
 	}
 
@@ -124,10 +124,10 @@ func printStat(tsv []threadStat) {
 	for i := 0; i < len(tsv); i++ {
 		numSec[i] = tsv[i].timeEnd.Sub(tsv[i].timeBegin).Seconds()
 	}
-	width_sec := len("sec")
+	widthSec := len("sec")
 	for i := 0; i < len(numSec); i++ {
-		if s := fmt.Sprintf("%.2f", numSec[i]); len(s) > width_sec {
-			width_sec = len(s)
+		if s := fmt.Sprintf("%.2f", numSec[i]); len(s) > widthSec {
+			widthSec = len(s)
 		}
 	}
 
@@ -137,39 +137,39 @@ func printStat(tsv []threadStat) {
 		mib := float64(tsv[i].numReadBytes+tsv[i].numWriteBytes) / (1 << 20)
 		numMibs[i] = mib / numSec[i]
 	}
-	width_mibs := len("MiB/sec")
+	widthMibs := len("MiB/sec")
 	for i := 0; i < len(numMibs); i++ {
-		if s := fmt.Sprintf("%.2f", numMibs[i]); len(s) > width_mibs {
-			width_mibs = len(s)
+		if s := fmt.Sprintf("%.2f", numMibs[i]); len(s) > widthMibs {
+			widthMibs = len(s)
 		}
 	}
 
 	// path
-	width_path := len("path")
+	widthPath := len("path")
 	for i := 0; i < len(tsv); i++ {
 		assert(len(tsv[i].inputPath) != 0)
-		if len(tsv[i].inputPath) > width_path {
-			width_path = len(tsv[i].inputPath)
+		if len(tsv[i].inputPath) > widthPath {
+			widthPath = len(tsv[i].inputPath)
 		}
 	}
 
 	// index
 	nlines := len(tsv)
-	width_index := 1
+	widthIndex := 1
 	if n := nlines; n > 0 {
 		n -= 1 // gid starts from 0
-		width_index = len(strconv.Itoa(int(n)))
+		widthIndex = len(strconv.Itoa(int(n)))
 	}
 
-	tfmt := strings.Repeat(" ", 1+width_index+1)
+	tfmt := strings.Repeat(" ", 1+widthIndex+1)
 	tfmt += fmt.Sprintf("%%-6s %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%-%ds\n",
-		width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs, width_path)
+		widthRepeat, widthStat, widthRead, widthReadBytes, widthWrite, widthWriteBytes, widthSec, widthMibs, widthPath)
 	s := fmt.Sprintf(tfmt, "type", "repeat", "stat", "read", "read[B]", "write", "write[B]", "sec", "MiB/sec", "path")
 	fmt.Print(s)
 	fmt.Println(strings.Repeat("-", len(s)-1)) // exclude 1 from \n
 
 	sfmt := fmt.Sprintf("#%%-%ds %%-6s %%%dd %%%dd %%%dd %%%dd %%%dd %%%dd %%%d.2f %%%d.2f %%-s\n",
-		width_index, width_repeat, width_stat, width_read, width_read_bytes, width_write, width_write_bytes, width_sec, width_mibs)
+		widthIndex, widthRepeat, widthStat, widthRead, widthReadBytes, widthWrite, widthWriteBytes, widthSec, widthMibs)
 	for i := 0; i < nlines; i++ {
 		s := "reader"
 		if !tsv[i].isReader {

@@ -57,23 +57,23 @@ func initDir(random bool) {
 	writePathsTs = time.Now().Format("20060102150405")
 }
 
-func cleanupWritePaths(tdv []*threadDir, keep_write_paths bool) (int, error) {
+func cleanupWritePaths(tdv []*threadDir, keepWritePaths bool) (int, error) {
 	var l []string
 	for i := 0; i < len(tdv); i++ {
 		l = append(l, tdv[i].writePaths...)
 	}
 
-	num_remain := 0
-	if keep_write_paths {
-		num_remain += len(l)
+	numRemain := 0
+	if keepWritePaths {
+		numRemain += len(l)
 	} else {
 		if l, err := unlinkWritePaths(l, -1); err != nil {
 			return -1, err
 		} else {
-			num_remain += len(l)
+			numRemain += len(l)
 		}
 	}
-	return num_remain, nil
+	return numRemain, nil
 }
 
 func unlinkWritePaths(l []string, count int) ([]string, error) {
@@ -91,7 +91,7 @@ func unlinkWritePaths(l []string, count int) ([]string, error) {
 		f := l[len(l)-1]
 		if t, err := getRawFileType(f); err != nil {
 			return l, err
-		} else if t == DIR || t == REG || t == SYMLINK {
+		} else if t == typeDir || t == typeReg || t == typeSymlink {
 			if exists, err := pathExists(f); err != nil {
 				return l, err
 			} else if !exists {
@@ -129,7 +129,7 @@ func readEntry(f string, thr *gThread) error {
 	// ignore . entries if specified
 	if optIgnoreDot {
 		// XXX want retval to ignore children for .directory
-		if t != DIR {
+		if t != typeDir {
 			if isDotPath(f) {
 				return nil
 			}
@@ -144,7 +144,7 @@ func readEntry(f string, thr *gThread) error {
 	// find target if symlink
 	var x string
 	switch t {
-	case SYMLINK:
+	case typeSymlink:
 		x, err = os.Readlink(f)
 		if err != nil {
 			return err
@@ -158,8 +158,8 @@ func readEntry(f string, thr *gThread) error {
 		if err != nil {
 			return err
 		}
-		thr.stat.incNumStat() // count twice for symlink
-		assert(t != SYMLINK)  // symlink chains resolved
+		thr.stat.incNumStat()    // count twice for symlink
+		assert(t != typeSymlink) // symlink chains resolved
 		if !optFollowSymlink {
 			return nil
 		}
@@ -168,18 +168,18 @@ func readEntry(f string, thr *gThread) error {
 	}
 
 	switch t {
-	case DIR:
+	case typeDir:
 		return nil
-	case REG:
+	case typeReg:
 		if err := readFile(x, thr); err != nil {
 			return err
 		}
 		return nil
-	case DEVICE:
+	case typeDevice:
 		return nil
-	case UNSUPPORTED:
+	case typeUnsupported:
 		return nil
-	case INVALID:
+	case typeInvalid:
 		panicFileType(x, "invalid", t)
 	default:
 		panicFileType(x, "unknown", t)
@@ -251,7 +251,7 @@ func writeEntry(f string, thr *gThread) error {
 	// ignore . entries if specified
 	if optIgnoreDot {
 		// XXX want retval to ignore children for .directory
-		if t != DIR {
+		if t != typeDir {
 			if isDotPath(f) {
 				return nil
 			}
@@ -259,23 +259,23 @@ func writeEntry(f string, thr *gThread) error {
 	}
 
 	switch t {
-	case DIR:
+	case typeDir:
 		if err := writeFile(f, f, thr); err != nil {
 			return err
 		}
 		return nil
-	case REG:
+	case typeReg:
 		if err := writeFile(filepath.Dir(f), f, thr); err != nil {
 			return err
 		}
 		return nil
-	case DEVICE:
+	case typeDevice:
 		return nil
-	case SYMLINK:
+	case typeSymlink:
 		return nil
-	case UNSUPPORTED:
+	case typeUnsupported:
 		return nil
-	case INVALID:
+	case typeInvalid:
 		panicFileType(f, "invalid", t)
 	default:
 		panicFileType(f, "unknown", t)
@@ -314,7 +314,7 @@ func writeFile(d string, f string, thr *gThread) error {
 
 	// register the write path, and return unless regular file
 	thr.dir.writePaths = append(thr.dir.writePaths, newf)
-	if t != REG {
+	if t != typeReg {
 		thr.stat.incNumWrite()
 		return nil
 	}
@@ -381,29 +381,29 @@ func writeFile(d string, f string, thr *gThread) error {
 }
 
 func creatInode(oldf string, newf string, t fileType) error {
-	if t == LINK {
+	if t == typeLink {
 		if t, err := getRawFileType(oldf); err != nil {
 			return err
-		} else if t == REG {
+		} else if t == typeReg {
 			if err := os.Link(oldf, newf); err != nil {
 				return err
 			}
 			return nil
 		}
-		t = DIR // create a directory instead
+		t = typeDir // create a directory instead
 	}
 
-	if t == DIR {
+	if t == typeDir {
 		if err := os.Mkdir(newf, 0644); err != nil {
 			return err
 		}
-	} else if t == REG {
+	} else if t == typeReg {
 		if fp, err := os.Create(newf); err != nil {
 			return err
 		} else {
 			defer fp.Close()
 		}
-	} else if t == SYMLINK {
+	} else if t == typeSymlink {
 		if err := os.Symlink(oldf, newf); err != nil {
 			return err
 		}
@@ -444,7 +444,7 @@ func collectWritePaths(input []string) ([]string, error) {
 				assertFilePath(f)
 				if t, err := getRawFileType(f); err != nil {
 					return err
-				} else if t == DIR || t == REG || t == SYMLINK {
+				} else if t == typeDir || t == typeReg || t == typeSymlink {
 					if strings.HasPrefix(path.Base(f), b) {
 						l = append(l, f)
 					}

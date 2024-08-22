@@ -28,49 +28,49 @@ func Test_getPathSeparator(t *testing.T) {
 }
 
 var (
-	dir_list = []string{
+	dirList = []string{
 		".",
 		"..",
 		"/",
 		"/dev"}
-	invalid_list = []string{
+	invalidList = []string{
 		"",
 		"516e7cb4-6ecf-11d6-8ff8-00022d09712b"}
 )
 
 func Test_getRawFileType(t *testing.T) {
-	for _, f := range dir_list {
-		if ret, err := getRawFileType(f); ret != DIR || err != nil {
+	for _, f := range dirList {
+		if ret, err := getRawFileType(f); ret != typeDir || err != nil {
 			t.Error(f)
 		}
 	}
-	for _, f := range invalid_list {
-		if ret, _ := getRawFileType(f); ret != INVALID {
+	for _, f := range invalidList {
+		if ret, _ := getRawFileType(f); ret != typeInvalid {
 			t.Error(f)
 		}
 	}
 }
 
 func Test_getFileType(t *testing.T) {
-	for _, f := range dir_list {
-		if ret, err := getFileType(f); ret != DIR || err != nil {
+	for _, f := range dirList {
+		if ret, err := getFileType(f); ret != typeDir || err != nil {
 			t.Error(f)
 		}
 	}
-	for _, f := range invalid_list {
-		if ret, _ := getFileType(f); ret != INVALID {
+	for _, f := range invalidList {
+		if ret, _ := getFileType(f); ret != typeInvalid {
 			t.Error(f)
 		}
 	}
 }
 
 func Test_pathExists(t *testing.T) {
-	for _, f := range dir_list {
+	for _, f := range dirList {
 		if exists, err := pathExists(f); !exists || err != nil {
 			t.Error(f)
 		}
 	}
-	for _, f := range invalid_list {
+	for _, f := range invalidList {
 		if exists, err := pathExists(f); exists || err == nil {
 			t.Error(f)
 		}
@@ -78,7 +78,7 @@ func Test_pathExists(t *testing.T) {
 }
 
 func Test_isDotPath(t *testing.T) {
-	dot_list := []string{
+	DotList := []string{
 		"/.",
 		"/..",
 		"./", // XXX
@@ -94,13 +94,13 @@ func Test_isDotPath(t *testing.T) {
 		"/path/to/.git/.xxx",
 		"/path/to/..git/xxx",
 		"/path/to/..git/.xxx"}
-	for _, f := range dot_list {
+	for _, f := range DotList {
 		if !isDotPath(f) {
 			t.Error(f)
 		}
 	}
 
-	non_dot_list := []string{
+	nonDotList := []string{
 		"/",
 		"xxx",
 		"xxx.",
@@ -111,7 +111,7 @@ func Test_isDotPath(t *testing.T) {
 		"/path/to/git./xxx",
 		"/path/to/git./xxx.",
 		"/path/to/git./x.xxx."}
-	for _, f := range non_dot_list {
+	for _, f := range nonDotList {
 		if isDotPath(f) {
 			t.Error(f)
 		}
@@ -123,26 +123,26 @@ func Test_isDirWritable(t *testing.T) {
 		return
 	}
 
-	writable_list := []string{
+	writableList := []string{
 		"/tmp"}
-	for _, f := range writable_list {
+	for _, f := range writableList {
 		if writable, err := isDirWritable(f); !writable || err != nil {
 			t.Error(f)
 		}
 	}
 
-	unwritable_list := []string{
+	unwritableList := []string{
 		"/proc"}
-	for _, f := range unwritable_list {
+	for _, f := range unwritableList {
 		if writable, err := isDirWritable(f); writable || err != nil {
 			t.Error(f)
 		}
 	}
 
-	invalid_list := []string{
+	invalidList := []string{
 		"/proc/vmstat", // regular file
 		"516e7cb4-6ecf-11d6-8ff8-00022d09712b"}
-	for _, f := range invalid_list {
+	for _, f := range invalidList {
 		if writable, err := isDirWritable(f); writable || err == nil {
 			t.Error(f)
 		}
@@ -150,7 +150,7 @@ func Test_isDirWritable(t *testing.T) {
 }
 
 func Test_removeDupString(t *testing.T) {
-	uniq_ll := [][]string{
+	uniqListList := [][]string{
 		{""},
 		{"/path/to/xxx"},
 		{"/path/to/xxx", "/path/to/yyy"},
@@ -160,7 +160,7 @@ func Test_removeDupString(t *testing.T) {
 		{"xxx1", "xxx2", "xxx3", ""},
 		{"a", "b", "c", "d", "e", "f"},
 	}
-	for _, l := range uniq_ll {
+	for _, l := range uniqListList {
 		x := removeDupString(l)
 		for i := range x {
 			for j := range x {
@@ -181,7 +181,7 @@ func Test_removeDupString(t *testing.T) {
 		}
 	}
 
-	dup_ll := [][]string{
+	dupListList := [][]string{
 		{"", ""},
 		{"", "", ""},
 		{"/path/to/xxx", "/path/to/xxx"},
@@ -191,7 +191,7 @@ func Test_removeDupString(t *testing.T) {
 		{"xxx1", "xxx2", "xxx1", "xxx2"},
 		{"a", "b", "c", "d", "e", "f", "a", "b", "c", "d", "e", "f"},
 	}
-	for _, l := range dup_ll {
+	for _, l := range dupListList {
 		x := removeDupString(l)
 		for i := range x {
 			for j := range x {
