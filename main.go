@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version               [3]int = [3]int{0, 4, 8}
+	version               [3]int = [3]int{0, 4, 9}
 	optNumSet             uint
 	optNumReader          uint
 	optNumWriter          uint
@@ -389,7 +389,8 @@ func main() {
 		printStat(tsv)
 		if numInterrupted > 0 {
 			break
-		} else if optNumSet != 1 && i != optNumSet-1 {
+		}
+		if optNumSet != 1 && i != optNumSet-1 {
 			fmt.Println()
 		}
 	}

@@ -1,3 +1,8 @@
+v0.4.9
+======
+- Misc updates
+- Fix race bug (since v0.1.0)
+
 v0.4.8
 ======
 - Misc updates

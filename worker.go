@@ -208,11 +208,13 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 				return
 			case s := <-ch:
 				dbg("signal", s)
+				globalLock()
 				switch s {
 				case syscall.SIGINT:
 					signaled = true
 					signalCh <- 1
 				}
+				globalUnlock()
 			}
 		}
 	}()
@@ -255,8 +257,10 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 		go func() {
 			defer wg.Done()
 			defer func() {
-				// XXX possible race vs signal handler goroutine
 				total := uint(0)
+				extra := uint(0)
+				// global lock to prevent race vs other workers and signal handler
+				globalLock()
 				for i := 0; i < len(thrv); i++ {
 					total += thrv[i].numComplete
 					total += thrv[i].numInterrupted
@@ -264,12 +268,15 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 				}
 				if total == numThread {
 					if signaled {
-						dbgf("%d+%d goroutines done", total, 1)
+						extra = 1
 					} else {
-						dbgf("%d goroutines done", total)
+						extra = 0
+						signaled = true
 						signalCh <- 1
 					}
 				}
+				globalUnlock()
+				dbgf("%d+%d goroutines done", total, extra)
 				thr.stat.setTimeEnd()
 			}()
 
@@ -279,12 +286,9 @@ func dispatchWorker(input []string) (int, int, int, int, []threadStat, error) {
 				timerCh = time.After(time.Duration(optTimeSecond) * time.Second)
 			}
 
-			// start loop
 			inputPath := input[thr.gid%uint(len(input))]
 			thr.stat.setInputPath(inputPath)
 
-			// Note that pathIterWalk can fall into infinite loop when used
-			// in conjunction with writer or symlink.
 			repeat := 0
 			dbgf("#%d start", thr.gid)
 			for {

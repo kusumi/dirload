@@ -92,6 +92,7 @@ func unlinkWritePaths(l []string, count int) ([]string, error) {
 		if t, err := getRawFileType(f); err != nil {
 			return l, err
 		} else if t == typeDir || t == typeReg || t == typeSymlink {
+			// don't resolve symlink (test symlink itself, not target)
 			if exists, err := pathExists(f); err != nil {
 				return l, err
 			} else if !exists {
@@ -291,6 +292,7 @@ func writeFile(d string, f string, thr *gThread) error {
 	}
 
 	// construct a write path
+	// XXX too long (easily hits ENAMETOOLONG with walk)
 	newb := fmt.Sprintf("%s_gid%d_%s_%d",
 		getWritePathsBase(), thr.gid, writePathsTs, thr.dir.writePathsCounter)
 	thr.dir.writePathsCounter++
@@ -445,6 +447,7 @@ func collectWritePaths(input []string) ([]string, error) {
 				if t, err := getRawFileType(f); err != nil {
 					return err
 				} else if t == typeDir || t == typeReg || t == typeSymlink {
+					// don't resolve symlink (test symlink itself, not target)
 					if strings.HasPrefix(path.Base(f), b) {
 						l = append(l, f)
 					}
